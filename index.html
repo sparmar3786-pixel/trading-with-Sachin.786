@@ -82,7 +82,7 @@ th:nth-child(2),th:nth-child(3),th:nth-child(4),th:nth-child(5){background:linea
   </div>
 
   <div class="toolbar">
-    <div class="card"><label class="label">Gateway URL</label><input id="gateway" class="input" value="http://localhost:8000"></div>
+    <div class="card"><label class="label">Gateway URL <span id="gatewayStatus" class="pill warn">CHECKING</span></label><input id="gateway" class="input" value="https://nifty-option-ai-gateway.onrender.com" placeholder="https://nifty-option-ai-gateway.onrender.com"></div>
     <div class="card"><label class="label">App access token (only when gateway auth is enabled)</label><input id="appToken" class="input" type="password" autocomplete="off" placeholder="Optional server access token"></div>
     <div class="card"><label class="label">CSV capture time (IST) — required for fresh CSV</label><input id="csvTime" class="input" type="datetime-local"></div>
     <div class="card"><label class="label">Mode</label><select id="mode" class="input"><option value="AUTO">AUTO</option><option value="BUYER">OPTION BUYER</option><option value="SELLER">OPTION SELLER</option><option value="BOTH">BUY CE + BUY PE</option></select></div>
@@ -328,6 +328,20 @@ function renderLog(e){if(!e){$('log').textContent='No decision yet.';return}cons
 let lastAIView=''; let lastIndexMap={}; let aiIndexTimer=null;
 function updateHeaderClock(){const d=new Date();const t=new Intl.DateTimeFormat('en-IN',{timeZone:'Asia/Kolkata',hour:'2-digit',minute:'2-digit',second:'2-digit',hour12:false}).format(d);if($('headerClock'))$('headerClock').textContent=t;if($('headerState')){const fr=freshState();const live=state.live;$('headerState').textContent=live?'LIVE DATA':(state.chain.length?(fr.ok?'CSV FRESH':'CSV ANALYSED'):'DATA WAIT');$('headerDot').className='headerDot '+(live||fr.ok?'good':state.chain.length?'warn':'bad')}}
 function gatewayBase(){return $('gateway').value.trim().replace(/\/$/,'')}
+async function checkGateway(){
+  const base=gatewayBase(); if(!base) return;
+  try{
+    const r=await fetch(base+'/health',{cache:'no-store'});
+    const j=await r.json().catch(()=>({}));
+    const el=$('gatewayStatus');
+    if(el){el.textContent=r.ok?'GATEWAY ONLINE':'GATEWAY ERROR';el.className='pill '+(r.ok?'good':'bad');}
+    return r.ok;
+  }catch(e){
+    const el=$('gatewayStatus');
+    if(el){el.textContent='GATEWAY OFFLINE';el.className='pill bad';}
+    return false;
+  }
+}
 function appHeaders(opts){const headers=new Headers((opts&&opts.headers)||{});const tok=$('appToken')?.value.trim()||'';if(tok)headers.set('X-App-Token',tok);if(opts?.body && !headers.has('Content-Type'))headers.set('Content-Type','application/json');return headers}
 async function apiFetch(path,opts={}){const o={...opts,headers:appHeaders(opts)};return fetch(gatewayBase()+path,o)}
 async function brokerStatus(){
