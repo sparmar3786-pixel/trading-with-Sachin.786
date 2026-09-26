@@ -41,6 +41,8 @@ APP_ACCESS_TOKEN = os.getenv('APP_ACCESS_TOKEN', '').strip()
 OPENAI_API_KEY = os.getenv('OPENAI_API_KEY', '').strip()
 OPENAI_MODEL = os.getenv('OPENAI_MODEL', 'gpt-5.6-sol').strip() or 'gpt-5.6-sol'
 OPENAI_TIMEOUT_SEC = max(20, int(os.getenv('OPENAI_TIMEOUT_SEC', '45')))
+GEMINI_API_KEY = os.getenv('GEMINI_API_KEY', '').strip()
+GEMINI_MODEL = os.getenv('GEMINI_MODEL', 'gemini-2.5-flash').strip() or 'gemini-2.5-flash'
 REQUIRE_HTTPS = os.getenv('REQUIRE_HTTPS', '0').strip().lower() in {'1', 'true', 'yes'}
 TRUSTED_ORIGINS = [x.strip() for x in os.getenv('TRUSTED_ORIGINS', '').split(',') if x.strip()]
 BROKER_SNAPSHOT_INTERVAL = max(5, int(os.getenv('BROKER_SNAPSHOT_INTERVAL_SEC', '30')))
@@ -598,10 +600,99 @@ async def openai_ai_audit(payload: dict[str, Any]):
         raise HTTPException(status_code=502, detail=f'External AI request failed: {type(exc).__name__}: {exc}')
 
 
+@app.post('/ai/gemini-chat')
+async def gemini_chat(payload: dict[str, Any]):
+    """Gemini CSV/option-chain analyst with Google Search grounding.
+    The Gemini key is server-side only; it is never accepted from the Android/WebView client.
+    """
+    if not GEMINI_API_KEY:
+        raise HTTPException(status_code=503, detail='Gemini AI is not configured on the server. Set GEMINI_API_KEY in the server secret store.')
+    question = str(payload.get('question') or '').strip()
+    if not question:
+        raise HTTPException(status_code=400, detail='Question is required.')
+
+    context = {
+        'symbol': str(payload.get('symbol') or 'NIFTY'),
+        'spot': parse_num(payload.get('spot')),
+        'expiry': str(payload.get('expiry') or ''),
+        'selectedStrike': parse_num(payload.get('selectedStrike')),
+        'ce': payload.get('ce') or {},
+        'pe': payload.get('pe') or {},
+        'previous': payload.get('previous') or {},
+        'fresh': bool(payload.get('fresh')),
+        'source': str(payload.get('source') or 'uploaded/live option-chain'),
+        'verified_intraday_bars': int(payload.get('bars') or 0),
+    }
+    chain = payload.get('chain') or []
+    context['nearby_chain'] = chain[:160] if isinstance(chain, list) else []
+
+    system_instruction = (
+        'You are the Gemini AI analyst inside NIFTY Option AI. '
+        'Analyze the supplied CSV/option-chain data first. The selected strike CE and PE are primary evidence. '
+        'Use OI, delta OI, LTP/premium, premium change, volume, IV, bid/ask, previous snapshot, ATM/near-ATM structure and PCR when available. '
+        'Never invent missing market values. Clearly distinguish OBSERVED DATA, CALCULATED INFERENCE and WEB FACTS. '
+        'If the user asks for current external information, news, events, rules or facts outside the supplied data, use Google Search grounding. '
+        'If data is stale, explicitly say it is old but calculations may still be performed; do not present stale data as live. '
+        'Do not claim guaranteed profit, certainty, hidden buyer/seller identity or a guaranteed outcome. '
+        'Answer in concise Hinglish/Hindi when the user asks in Hinglish/Hindi. '
+        'For data questions, explain the calculation used when useful.'
+    )
+    user_text = 'User question: ' + question + '\n\nCURRENT DATA CONTEXT:\n' + json.dumps(context, separators=(',', ':'), default=str)
+
+    def _generate():
+        from google import genai
+        from google.genai import types
+        client = genai.Client(api_key=GEMINI_API_KEY)
+        response = client.models.generate_content(
+            model=GEMINI_MODEL,
+            contents=user_text,
+            config=types.GenerateContentConfig(
+                system_instruction=system_instruction,
+                tools=[types.Tool(google_search=types.GoogleSearch())],
+                temperature=0.3,
+                max_output_tokens=1400,
+            ),
+        )
+        answer = (response.text or '').strip()
+        sources = []
+        try:
+            candidates = getattr(response, 'candidates', None) or []
+            gm = getattr(candidates[0], 'grounding_metadata', None) if candidates else None
+            chunks = getattr(gm, 'grounding_chunks', None) or []
+            for chunk in chunks:
+                web = getattr(chunk, 'web', None)
+                url = getattr(web, 'uri', None) if web else None
+                title = getattr(web, 'title', None) if web else None
+                if url:
+                    sources.append({'title': title or url, 'url': url})
+        except Exception:
+            pass
+        return answer, sources
+
+    try:
+        answer, sources = await asyncio.to_thread(_generate)
+        if not answer:
+            raise HTTPException(status_code=502, detail='Gemini returned no text output.')
+        return {
+            'answer': answer,
+            'source': 'Google Gemini API',
+            'model': GEMINI_MODEL,
+            'webSearched': bool(sources),
+            'sources': sources[:8],
+            'timeIST': datetime.now(IST).isoformat(),
+        }
+    except HTTPException:
+        raise
+    except Exception as exc:
+        raise HTTPException(status_code=502, detail=f'Gemini request failed: {type(exc).__name__}: {exc}')
+
+
 @app.post('/ai/chat')
 async def ai_chat(payload: dict[str, Any]):
+    if GEMINI_API_KEY:
+        return await gemini_chat(payload)
     if not OPENAI_API_KEY:
-        raise HTTPException(status_code=503, detail='External AI is not configured on the server. Set OPENAI_API_KEY in the server secret store.')
+        raise HTTPException(status_code=503, detail='External AI is not configured. Set GEMINI_API_KEY (preferred) or OPENAI_API_KEY in the server secret store.')
     question=str(payload.get('question') or '').strip()
     if not question: raise HTTPException(status_code=400,detail='Question is required.')
     context={'symbol':str(payload.get('symbol') or 'NIFTY'),'spot':parse_num(payload.get('spot')),'expiry':str(payload.get('expiry') or ''),'selectedStrike':parse_num(payload.get('selectedStrike')),'ce':payload.get('ce') or {},'pe':payload.get('pe') or {},'previous':payload.get('previous') or {},'fresh':bool(payload.get('fresh')),'source':str(payload.get('source') or 'option-chain'),'verified_intraday_bars':int(payload.get('bars') or 0)}
