@@ -15,7 +15,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Setup Java 17
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@v5
         with:
           distribution: temurin
           java-version: '17'
@@ -25,32 +25,98 @@ jobs:
         with:
           gradle-version: '8.11.1'
 
-      - name: Check Gradle files
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Install Android SDK 35
         run: |
-          echo "=== ROOT ==="
-          ls -la
-          echo "=== APP ==="
-          ls -la app
-          echo "=== SETTINGS ==="
-          cat settings.gradle
-          echo "=== ROOT BUILD ==="
-          cat build.gradle
-          echo "=== APP BUILD ==="
-          cat app/build.gradle
+          yes | sdkmanager --licenses >/dev/null || true
+          sdkmanager "platforms;android-35" "build-tools;35.0.0"
+
+      - name: Create missing Android source files
+        run: |
+          mkdir -p app/src/main/java/com/sachin/niftyoptionai
+          mkdir -p app/src/main/res/values
+          mkdir -p app/src/main/assets
+
+          cat > app/src/main/java/com/sachin/niftyoptionai/MainActivity.java <<'EOF'
+          package com.sachin.niftyoptionai;
+
+          import android.app.Activity;
+          import android.os.Bundle;
+          import android.webkit.WebChromeClient;
+          import android.webkit.WebSettings;
+          import android.webkit.WebView;
+          import android.webkit.WebViewClient;
+
+          public class MainActivity extends Activity {
+              private WebView web;
+
+              @Override
+              public void onCreate(Bundle state) {
+                  super.onCreate(state);
+                  web = new WebView(this);
+                  WebSettings s = web.getSettings();
+                  s.setJavaScriptEnabled(true);
+                  s.setDomStorageEnabled(true);
+                  s.setDatabaseEnabled(true);
+                  s.setMediaPlaybackRequiresUserGesture(true);
+                  s.setBuiltInZoomControls(false);
+                  s.setDisplayZoomControls(false);
+                  web.setWebViewClient(new WebViewClient());
+                  web.setWebChromeClient(new WebChromeClient());
+                  setContentView(web);
+                  web.loadUrl("file:///android_asset/index.html");
+              }
+
+              @Override
+              public void onBackPressed() {
+                  if (web.canGoBack()) {
+                      web.goBack();
+                  } else {
+                      super.onBackPressed();
+                  }
+              }
+          }
+          EOF
+
+          cat > app/src/main/res/values/styles.xml <<'EOF'
+          <resources>
+              <style name="AppTheme" parent="android:style/Theme.Material.Light.NoActionBar">
+                  <item name="android:fontFamily">sans</item>
+                  <item name="android:colorAccent">#71a7ff</item>
+                  <item name="android:windowActionModeOverlay">true</item>
+                  <item name="android:navigationBarColor">#08101d</item>
+                  <item name="android:statusBarColor">#08101d</item>
+                  <item name="android:windowLightStatusBar">false</item>
+              </style>
+          </resources>
+          EOF
+
+          cp index.html app/src/main/assets/index.html
+
+      - name: Verify Android project
+        run: |
+          test -f settings.gradle
+          test -f build.gradle
+          test -f app/build.gradle
+          test -f app/src/main/AndroidManifest.xml
+          test -f app/src/main/java/com/sachin/niftyoptionai/MainActivity.java
+          test -f app/src/main/res/values/styles.xml
+          test -f app/src/main/assets/index.html
+          echo "Android project structure OK"
+          find app/src/main -maxdepth 4 -type f | sort
 
       - name: Build APK
-        run: |
-          gradle --version
-          gradle :app:assembleDebug --stacktrace --info
+        run: gradle :app:assembleDebug --no-daemon --stacktrace
 
-      - name: Check APK
-        if: success()
+      - name: Verify APK
         run: |
-          ls -lh app/build/outputs/apk/debug/
+          test -f app/build/outputs/apk/debug/app-debug.apk
+          ls -lh app/build/outputs/apk/debug/app-debug.apk
 
       - name: Upload APK
-        if: success()
         uses: actions/upload-artifact@v4
         with:
-          name: NIFTY-Option-AI-debug
+          name: NIFTY-Option-AI-debug-apk
           path: app/build/outputs/apk/debug/app-debug.apk
