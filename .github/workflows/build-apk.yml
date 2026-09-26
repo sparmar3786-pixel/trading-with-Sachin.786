@@ -38,6 +38,13 @@ jobs:
           yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses >/dev/null || true
           "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "platforms;android-35" "build-tools;35.0.0" "platform-tools"
 
+      - name: Prepare Android project files
+        run: |
+          mkdir -p app/src/main
+          test -f app/src/main/AndroidManifest.xml
+          test -f index.html
+          echo "Using repository Android shell and frontend"
+
       - name: Create missing Android source files
         run: |
           mkdir -p app/src/main/java/com/sachin/niftyoptionai
