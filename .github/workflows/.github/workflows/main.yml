@@ -26,22 +26,33 @@ jobs:
         with:
           gradle-version: '8.9'
 
-      - name: Check project files
+      - name: Show project structure
         run: |
-          echo "Current directory:"
-          pwd
-          echo "Project files:"
+          echo "=== ROOT ==="
           ls -la
-          echo "App directory:"
-          ls -la app || true
+          echo "=== ANDROID ==="
+          ls -la android 2>/dev/null || true
+          echo "=== APP ==="
+          ls -la app 2>/dev/null || true
 
-      - name: Build Debug APK
+      - name: Build APK
         run: |
-          gradle :app:assembleDebug --stacktrace
+          if [ -f "./gradlew" ]; then
+            chmod +x ./gradlew
+            ./gradlew :app:assembleDebug --stacktrace
+          elif [ -f "./android/gradlew" ]; then
+            cd android
+            chmod +x ./gradlew
+            ./gradlew :app:assembleDebug --stacktrace
+          else
+            gradle :app:assembleDebug --stacktrace
+          fi
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
           name: NIFTY-Option-AI-debug
-          path: app/build/outputs/apk/debug/app-debug.apk
+          path: |
+            app/build/outputs/apk/debug/app-debug.apk
+            android/app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
