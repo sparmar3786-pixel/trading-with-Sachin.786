@@ -38,6 +38,9 @@ UTC = ZoneInfo('UTC')
 NSE_BASE = 'https://www.nseindia.com'
 UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/140 Safari/537.36'
 APP_ACCESS_TOKEN = os.getenv('APP_ACCESS_TOKEN', '').strip()
+OPENAI_API_KEY = os.getenv('OPENAI_API_KEY', '').strip()
+OPENAI_MODEL = os.getenv('OPENAI_MODEL', 'gpt-5.6-sol').strip() or 'gpt-5.6-sol'
+OPENAI_TIMEOUT_SEC = max(20, int(os.getenv('OPENAI_TIMEOUT_SEC', '45')))
 REQUIRE_HTTPS = os.getenv('REQUIRE_HTTPS', '0').strip().lower() in {'1', 'true', 'yes'}
 TRUSTED_ORIGINS = [x.strip() for x in os.getenv('TRUSTED_ORIGINS', '').split(',') if x.strip()]
 BROKER_SNAPSHOT_INTERVAL = max(5, int(os.getenv('BROKER_SNAPSHOT_INTERVAL_SEC', '30')))
@@ -519,6 +522,81 @@ async def replay_run(symbol: str='NIFTY', limit: int=5000):
 @app.get('/replay/summary')
 async def replay_summary(symbol: str='NIFTY'):
     return {'symbol':symbol,'transitionStats':transition_stats(symbol),'outcomes':outcome_stats(symbol),'note':'Historical replay statistics are descriptive; no future outcome is guaranteed.'}
+
+@app.post('/ai/openai-audit')
+async def openai_ai_audit(payload: dict[str, Any]):
+    """Server-side external AI audit. The API key is read only from OPENAI_API_KEY.
+    Never send an OpenAI secret from the Android/WebView client.
+    """
+    if not OPENAI_API_KEY:
+        raise HTTPException(status_code=503, detail='External AI is not configured on the server. Set OPENAI_API_KEY in the server secret store.')
+    chain = payload.get('chain') or []
+    spot = parse_num(payload.get('spot'))
+    symbol = str(payload.get('symbol') or 'NIFTY')
+    expiry = str(payload.get('expiry') or '')
+    question = str(payload.get('question') or 'Full audit of current market')
+    fresh = bool(payload.get('fresh'))
+    bars = int(payload.get('bars') or 0)
+    source = str(payload.get('source') or 'uploaded/live option-chain')
+    rows = chain[:160] if isinstance(chain, list) else []
+    context = {
+        'symbol': symbol,
+        'spot': spot,
+        'expiry': expiry,
+        'fresh': fresh,
+        'verified_intraday_bars': bars,
+        'source': source,
+        'option_chain': rows,
+    }
+    system_prompt = (
+        'You are the external AI analyst inside NIFTY Option AI. Analyze ONLY the supplied market data and rule-engine context. '
+        'Never invent prices, OI, volume, Greeks, news, or timestamps. Clearly distinguish observed evidence from inference. '
+        'For options, discuss CE and PE separately and inspect premium, OI change, volume, ATM/near-ATM structure, PCR and transition evidence when available. '
+        'If freshness or intraday bars are insufficient, say that the high-confidence trade gate remains blocked. '
+        'Do not claim to know hidden buyer/seller identity, private stop-loss orders, or guaranteed outcomes. '
+        'Give a concise audit with: DATA STATUS, MARKET STRUCTURE, CE, PE, KEY STRIKES, RISK/BLOCKERS, and NEXT CHECK. '
+        'This is decision support, not a guarantee or personalized financial advice.'
+    )
+    user_prompt = f'User question: {question}\n\nStructured market context:\n{json.dumps(context, separators=(",", ":"), default=str)}'
+    body = {
+        'model': OPENAI_MODEL,
+        'input': [
+            {'role': 'system', 'content': [{'type': 'input_text', 'text': system_prompt}]},
+            {'role': 'user', 'content': [{'type': 'input_text', 'text': user_prompt}]},
+        ],
+        'max_output_tokens': 1400,
+    }
+    try:
+        timeout = httpx.Timeout(float(OPENAI_TIMEOUT_SEC), connect=10.0)
+        async with httpx.AsyncClient(timeout=timeout) as client:
+            response = await client.post(
+                'https://api.openai.com/v1/responses',
+                headers={
+                    'Authorization': f'Bearer {OPENAI_API_KEY}',
+                    'Content-Type': 'application/json',
+                },
+                json=body,
+            )
+        if response.status_code >= 400:
+            detail = response.text[:800]
+            raise HTTPException(status_code=502, detail=f'External AI provider error ({response.status_code}): {detail}')
+        data = response.json()
+        answer = data.get('output_text')
+        if not answer:
+            parts = []
+            for item in data.get('output') or []:
+                for content in item.get('content') or []:
+                    if content.get('type') == 'output_text' and content.get('text'):
+                        parts.append(content['text'])
+            answer = '\n'.join(parts).strip()
+        if not answer:
+            raise HTTPException(status_code=502, detail='External AI returned no text output.')
+        return {'answer': answer, 'source': 'OpenAI Responses API', 'model': OPENAI_MODEL, 'timeIST': datetime.now(IST).isoformat()}
+    except HTTPException:
+        raise
+    except Exception as exc:
+        raise HTTPException(status_code=502, detail=f'External AI request failed: {type(exc).__name__}: {exc}')
+
 
 @app.post('/ai/audit')
 async def ai_audit(payload: dict[str, Any]):
