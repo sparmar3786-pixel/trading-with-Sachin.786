@@ -86,6 +86,8 @@ jobs:
                           filePathCallback = callback;
                           try {
                               Intent intent = params.createIntent();
+                              intent.setType("*/*");
+                              intent.addCategory(Intent.CATEGORY_OPENABLE);
                               startActivityForResult(intent, FILE_CHOOSER_REQUEST);
                               return true;
                           } catch (Exception e) {
