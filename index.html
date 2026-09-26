@@ -652,7 +652,7 @@ $('brokerProvider').addEventListener('change',()=>{brokerFormLabels();brokerStat
 $('file').addEventListener('change',async e=>{
   const f=e.target.files&&e.target.files[0]; if(!f)return;
   setStatus('READING CSV…','warn'); $('age').textContent='Reading '+(f.name||'selected file')+'…';
-  try{await loadCSV(f); $('fileName').textContent=f.name||'CSV loaded'; renderAll();}
+  try{await loadCSV(f); renderAll();}
   catch(err){setStatus('CSV ERROR','bad');$('age').textContent='Upload failed';$('audit').innerHTML=`<div class="flag block"><b>CSV upload failed</b><span class="muted">${esc(err.message||err)}</span></div>`;}
   finally{e.target.value='';}
 });
