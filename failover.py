@@ -2,7 +2,10 @@ from __future__ import annotations
 import time
 import threading
 from typing import Any
-from .data_source import OfficialDataSource
+try:
+    from .data_source import OfficialDataSource
+except ImportError:
+    from data_source import OfficialDataSource
 
 class MarketDataFailover:
     """Read-only official-feed failover. A source switch locks signal eligibility
