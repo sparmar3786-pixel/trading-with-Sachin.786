@@ -284,7 +284,51 @@ function fmtIST(iso){if(!iso)return'—';const d=new Date(iso);if(Number.isNaN(d
 function ageSec(iso){if(!iso)return null;return Math.round((Date.now()-new Date(iso).getTime())/1000)}
 function setStatus(text,cls='warn'){const el=$('status');el.textContent=text;el.className='v '+cls}
 function parseCSV(text){text=String(text||'').replace(/^\uFEFF/,'');const rows=[];let row=[],cell='',q=false;for(let i=0;i<text.length;i++){const c=text[i],n=text[i+1];if(c==='"'&&q&&n==='"'){cell+='"';i++;continue}if(c==='"'){q=!q;continue}if(c===','&&!q){row.push(cell.trim());cell='';continue}if((c==='\n'||c==='\r')&&!q){if(c==='\r'&&n==='\n')i++;row.push(cell.trim());cell='';if(row.some(x=>x.trim()!==''))rows.push(row);row=[];continue}cell+=c}if(cell||row.length){row.push(cell.trim());rows.push(row)}return rows}
-function inferChain(rows){const headerIndex=rows.findIndex(r=>r.some(x=>/\bSTRIKE(?:\s*PRICE)?\b/i.test(String(x).trim())));if(headerIndex<0)throw Error('NSE option-chain header not found. Please upload the CSV downloaded from NSE Option Chain.');const header=rows[headerIndex];const strikeIdx=header.findIndex(x=>/\bSTRIKE(?:\s*PRICE)?\b/i.test(String(x).trim()));if(strikeIdx<0)throw Error('Strike Price column not found in the CSV.');const leftStart=strikeIdx-10;if(leftStart<0)throw Error('Unsupported NSE CSV layout: Call-side columns are missing before Strike Price.');const out=[];for(let i=headerIndex+1;i<rows.length;i++){const r=rows[i];if(r.length<=strikeIdx+10)continue;const strike=num(r[strikeIdx]);if(strike==null||strike<=0)continue;const v=k=>num(r[k]);out.push({strike,ce:{oi:v(leftStart),doi:v(leftStart+1),vol:v(leftStart+2),iv:v(leftStart+3),ltp:v(leftStart+4),chg:v(leftStart+5),bid:v(leftStart+7),ask:v(leftStart+8)},pe:{bid:v(strikeIdx+2),ask:v(strikeIdx+3),chg:v(strikeIdx+5),ltp:v(strikeIdx+6),iv:v(strikeIdx+7),vol:v(strikeIdx+8),doi:v(strikeIdx+9),oi:v(strikeIdx+10)}})}if(out.length<3)throw Error('NSE CSV was opened, but no option rows were detected. Make sure you uploaded the Option Chain .csv, not another NSE report.');return out.sort((a,b)=>a.strike-b.strike)}
+function inferChain(rows){
+  const norm=s=>String(s??'').trim().toLowerCase().replace(/[^a-z0-9]+/g,' ');
+  const headerIndex=rows.findIndex(r=>r.some(x=>/\bSTRIKE(?:\s*PRICE)?\b/i.test(String(x).trim())));
+  if(headerIndex<0)throw Error('NSE option-chain header not found. Upload the NSE Option Chain CSV.');
+  const header=rows[headerIndex].map(norm);
+  const strikeIdx=header.findIndex(x=>/\bstrike(?: price)?\b/i.test(x));
+  if(strikeIdx<0)throw Error('Strike Price column not found in the CSV.');
+  const findCol=(start,end,patterns)=>{
+    for(let i=start;i<end;i++){const h=header[i];if(patterns.some(p=>p.test(h)))return i}
+    return -1
+  };
+  const ceStart=Math.max(0,strikeIdx-12), ceEnd=strikeIdx, peStart=strikeIdx+1, peEnd=header.length;
+  const ce={
+    oi:findCol(ceStart,ceEnd,[/^oi$/, /open interest/]),
+    doi:findCol(ceStart,ceEnd,[/chng.*oi/,/change.*oi/]),
+    vol:findCol(ceStart,ceEnd,[/^volume$/, /volume/]),
+    iv:findCol(ceStart,ceEnd,[/^iv$/, /implied volatility/]),
+    ltp:findCol(ceStart,ceEnd,[/^ltp$/, /last price/]),
+    chg:findCol(ceStart,ceEnd,[/^chng$/, /^change$/]),
+    bid:findCol(ceStart,ceEnd,[/bid price/,/^bid$/]),
+    ask:findCol(ceStart,ceEnd,[/ask price/,/^ask$/])
+  };
+  const pe={
+    bid:findCol(peStart,peEnd,[/bid price/,/^bid$/]),
+    ask:findCol(peStart,peEnd,[/ask price/,/^ask$/]),
+    chg:findCol(peStart,peEnd,[/^chng$/, /^change$/]),
+    ltp:findCol(peStart,peEnd,[/^ltp$/, /last price/]),
+    iv:findCol(peStart,peEnd,[/^iv$/, /implied volatility/]),
+    vol:findCol(peStart,peEnd,[/^volume$/, /volume/]),
+    doi:findCol(peStart,peEnd,[/chng.*oi/,/change.*oi/]),
+    oi:findCol(peStart,peEnd,[/^oi$/, /open interest/])
+  };
+  const fallback=(idx,offset)=>idx+offset<rows[headerIndex].length?idx+offset:-1;
+  if(ce.oi<0)ce.oi=fallback(strikeIdx,-10);if(ce.doi<0)ce.doi=fallback(strikeIdx,-9);if(ce.vol<0)ce.vol=fallback(strikeIdx,-8);if(ce.iv<0)ce.iv=fallback(strikeIdx,-7);if(ce.ltp<0)ce.ltp=fallback(strikeIdx,-6);if(ce.chg<0)ce.chg=fallback(strikeIdx,-5);if(ce.bid<0)ce.bid=fallback(strikeIdx,-3);if(ce.ask<0)ce.ask=fallback(strikeIdx,-2);
+  if(pe.bid<0)pe.bid=fallback(strikeIdx,2);if(pe.ask<0)pe.ask=fallback(strikeIdx,3);if(pe.chg<0)pe.chg=fallback(strikeIdx,5);if(pe.ltp<0)pe.ltp=fallback(strikeIdx,6);if(pe.iv<0)pe.iv=fallback(strikeIdx,7);if(pe.vol<0)pe.vol=fallback(strikeIdx,8);if(pe.doi<0)pe.doi=fallback(strikeIdx,9);if(pe.oi<0)pe.oi=fallback(strikeIdx,10);
+  const out=[];
+  for(let i=headerIndex+1;i<rows.length;i++){
+    const r=rows[i]; const strike=num(r[strikeIdx]); if(strike==null||strike<=0)continue;
+    const v=k=>k>=0?num(r[k]):null;
+    const row={strike,ce:{oi:v(ce.oi),doi:v(ce.doi),vol:v(ce.vol),iv:v(ce.iv),ltp:v(ce.ltp),chg:v(ce.chg),bid:v(ce.bid),ask:v(ce.ask)},pe:{bid:v(pe.bid),ask:v(pe.ask),chg:v(pe.chg),ltp:v(pe.ltp),iv:v(pe.iv),vol:v(pe.vol),doi:v(pe.doi),oi:v(pe.oi)}};
+    if(row.ce.oi!=null||row.ce.ltp!=null||row.pe.oi!=null||row.pe.ltp!=null)out.push(row);
+  }
+  if(out.length<3)throw Error('CSV opened but no option rows were detected. Please upload the NSE Option Chain CSV with Strike Price, CE and PE columns.');
+  return out.sort((a,b)=>a.strike-b.strike)
+}
 function parseNSETimestamp(value){if(!value)return null;const s=String(value).trim();let d=new Date(s);if(!Number.isNaN(d.getTime()))return d.toISOString();const m=s.match(/(\d{2})[-\/]([A-Za-z]{3}|\d{2})[-\/](\d{4})[ T](\d{2}):(\d{2})(?::(\d{2}))?/);if(m){const months={Jan:0,Feb:1,Mar:2,Apr:3,May:4,Jun:5,Jul:6,Aug:7,Sep:8,Oct:9,Nov:10,Dec:11};const mon=isNaN(m[2])?months[m[2].slice(0,3)]:Number(m[2])-1;const dd=Number(m[1]),yy=Number(m[3]),hh=Number(m[4]),mi=Number(m[5]),ss=Number(m[6]||0);const utc=Date.UTC(yy,mon,dd,hh-5,mi-30,ss);return new Date(utc).toISOString()}return null}
 function localInputToISO(v){if(!v)return null;const d=new Date(v);return Number.isNaN(d.getTime())?null:d.toISOString()}
 function currentSnapshot(){return state.snapshots[state.snapshots.length-1]||null}
@@ -544,7 +588,14 @@ function setIndexSymbol(sym){
   const title=document.querySelector('.brandText .sub'); if(title) title.textContent='OI • ΔOI • Premium • Volume • '+state.symbol+' • CE/PE signal engine';
 }
 function csvAutoTime(rows,file){for(const r of rows){for(let i=0;i<r.length;i++){const cell=String(r[i]||'').trim();if(/updated|timestamp/i.test(cell)){for(const x of r.slice(i,i+4)){const d=parseNSETimestamp(x);if(d)return d}}}}return file?.lastModified?new Date(file.lastModified).toISOString():null}
-async function loadCSV(file){const text=await file.text();if(!/\.csv$/i.test(file.name)&&!/^text\/csv/i.test(file.type||''))throw Error('This file is not a CSV. Please export the option chain as CSV for analysis.');const rows=parseCSV(text);const chain=inferChain(rows);const detected=detectIndexSymbol(file,rows);setIndexSymbol(detected);const time=csvAutoTime(rows,file);const userSpot=(()=>{const best=chain.filter(x=>x.ce.ltp!=null&&x.pe.ltp!=null).map(x=>({strike:x.strike,sum:x.ce.ltp+x.pe.ltp})).sort((a,b)=>a.sum-b.sum)[0];return best?.strike??null})();const expiry=((file.name.match(/(\d{1,2}[-_ ]+[A-Za-z]{3}[-_ ]+\d{4})/)||[])[1])||null;state.loadedFile=file.name;addSnapshot(chain,{captureAt:time,spot:userSpot,spotSource:userSpot!=null?'manual CSV spot':'estimated/no trusted spot',expiry,captureSource:time?'CSV timestamp/file time':'UNVERIFIED',source:'CSV'});if(time){$('csvTime').value=new Date(time).toISOString().slice(0,16)}setStatus(time?(freshState().ok?'CSV LOADED • AUTO ANALYSIS':'CSV LOADED • OLD DATA • CALCULATIONS ACTIVE'):'CSV LOADED • CALCULATIONS ACTIVE','good');updateLearning().catch(()=>{});loadTransitionMemory().catch(()=>{});$('audit').insertAdjacentHTML('afterbegin',`<div class="flag ok"><b>NSE CSV loaded successfully</b><span class="muted">${chain.length} strikes detected • ${esc(file.name)} • ${time?'capture time verified':'timestamp not available; current-trade freshness remains blocked'}</span></div>`)}
+async function loadCSV(file){
+  if(!file)throw Error('No file selected.');
+  let text='';
+  if(typeof file.text==='function')text=await file.text();
+  else text=await new Promise((resolve,reject)=>{const fr=new FileReader();fr.onload=()=>resolve(String(fr.result||''));fr.onerror=()=>reject(Error('Android could not read this file. Please choose the CSV again.'));fr.readAsText(file)});
+  if(!text||text.trim().length<20)throw Error('CSV file is empty or could not be read by Android.');
+  if(!/\.csv$/i.test(file.name)&&!/^text\/(csv|plain)/i.test(file.type||''))throw Error('Please select the NSE Option Chain CSV file.');
+const rows=parseCSV(text);const chain=inferChain(rows);const detected=detectIndexSymbol(file,rows);setIndexSymbol(detected);const time=csvAutoTime(rows,file);const userSpot=(()=>{const best=chain.filter(x=>x.ce.ltp!=null&&x.pe.ltp!=null).map(x=>({strike:x.strike,sum:x.ce.ltp+x.pe.ltp})).sort((a,b)=>a.sum-b.sum)[0];return best?.strike??null})();const expiry=((file.name.match(/(\d{1,2}[-_ ]+[A-Za-z]{3}[-_ ]+\d{4})/)||[])[1])||null;state.loadedFile=file.name;addSnapshot(chain,{captureAt:time,spot:userSpot,spotSource:userSpot!=null?'manual CSV spot':'estimated/no trusted spot',expiry,captureSource:time?'CSV timestamp/file time':'UNVERIFIED',source:'CSV'});if(time){$('csvTime').value=new Date(time).toISOString().slice(0,16)}setStatus(time?(freshState().ok?'CSV LOADED • AUTO ANALYSIS':'CSV LOADED • OLD DATA • CALCULATIONS ACTIVE'):'CSV LOADED • CALCULATIONS ACTIVE','good');updateLearning().catch(()=>{});loadTransitionMemory().catch(()=>{});$('audit').insertAdjacentHTML('afterbegin',`<div class="flag ok"><b>NSE CSV loaded successfully</b><span class="muted">${chain.length} strikes detected • ${esc(file.name)} • ${time?'capture time verified':'timestamp not available; current-trade freshness remains blocked'}</span></div>`)}
 async function persistLiveSnapshot(){
   if(!state.chain.length || !state.captureAt) return;
   try{ await apiFetch('/memory/snapshot',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({symbol:state.symbol||'NIFTY',capturedAt:state.captureAt,source:state.source||'NSE',spot:state.spot,expiry:state.expiry,chain:state.chain})}); }catch(e){ console.warn('Persistent memory save failed',e); }
@@ -598,7 +649,13 @@ function connectMarketWS(){if(marketWS&&marketWS.readyState<=1)return;try{market
 window.addEventListener('resize',resizeChart);
 function toggleLive(){state.live=!state.live;$('liveBtn').textContent='Live: '+(state.live?'ON':'OFF');if(state.live){connectMarketWS();loadChartHistory();loadOrderFlow();fetchLive();loadReferences();loadTransitionMemory();scanIndices();clearInterval(state.liveTimer);const liveLoop=async()=>{const ok=await fetchLive();if(ok){await alertSignalChange()}else if(state.liveFailCount>=3){const wait=Math.min(30000,5000*Math.pow(2,Math.min(3,state.liveFailCount-3)));clearInterval(state.liveTimer);state.liveTimer=setTimeout(()=>{state.liveTimer=setInterval(liveLoop,wait);liveLoop()},wait)}};state.liveTimer=setInterval(liveLoop,5000);liveLoop()}else{clearInterval(state.liveTimer);state.liveTimer=null;if(marketWS){marketWS.close();marketWS=null}}}
 $('brokerProvider').addEventListener('change',()=>{brokerFormLabels();brokerStatus()}); brokerFormLabels(); $('brokerConnect').addEventListener('click',brokerConnect);$('brokerConnectSaved').addEventListener('click',brokerConnectSaved);$('clearSavedBroker').addEventListener('click',clearSavedBroker);$('brokerDisconnect').addEventListener('click',brokerDisconnect);$('gateway').addEventListener('change',()=>{state.gateway=gatewayBase();loadReferences()});brokerStatus();
-$('file').addEventListener('change',async e=>{const f=e.target.files[0];if(!f)return;try{await loadCSV(f)}catch(err){setStatus('ERROR','bad');$('audit').innerHTML=`<div class="flag block"><b>CSV error</b><span class="muted">${esc(err.message)}</span></div>`}});
+$('file').addEventListener('change',async e=>{
+  const f=e.target.files&&e.target.files[0]; if(!f)return;
+  setStatus('READING CSV…','warn'); $('age').textContent='Reading '+(f.name||'selected file')+'…';
+  try{await loadCSV(f); $('fileName').textContent=f.name||'CSV loaded'; renderAll();}
+  catch(err){setStatus('CSV ERROR','bad');$('age').textContent='Upload failed';$('audit').innerHTML=`<div class="flag block"><b>CSV upload failed</b><span class="muted">${esc(err.message||err)}</span></div>`;}
+  finally{e.target.value='';}
+});
 $('chain').addEventListener('click',e=>{const cell=e.target.closest('[data-strike]');if(cell)selectStrike(cell.dataset.strike)});$('strikeMap').addEventListener('click',e=>{const box=e.target.closest('[data-strike]');if(box)selectStrike(box.dataset.strike)});$('liveBtn').addEventListener('click',toggleLive);$('aiAsk').addEventListener('click',()=>aiAudit());$('aiQuestion').addEventListener('keydown',e=>{if(e.key==='Enter')aiAudit()});$('notifyBtn').addEventListener('click',enableNotifications);$('scanBtn').addEventListener('click',scanIndices);$('refreshBtn').addEventListener('click',fetchLive);$('gateway').addEventListener('change',()=>{loadReferences()});$('mode').addEventListener('change',renderAll);$('strikeSelect').addEventListener('change',e=>{state.selectedStrike=num(e.target.value);renderAll()});$('riskModel').addEventListener('change',renderAll);$('lotSize').addEventListener('change',()=>{$('payLot').value=$('lotSize').value});
 ['payType','paySide','payStrike','payPremium','payExpirySpot','payLot','payCurrentSpot'].forEach(id=>$(id).addEventListener('input',()=>{}));
 $('calcPay').addEventListener('click',()=>{const type=$('payType').value,side=$('paySide').value,K=num($('payStrike').value),prem=num($('payPremium').value),S=num($('payExpirySpot').value),lot=num($('payLot').value)||1,current=num($('payCurrentSpot').value);if(K==null||prem==null||S==null){$('payResult').innerHTML='<b>Need strike, premium and expiry spot.</b>';return}const intrinsic=type==='CE'?Math.max(S-K,0):Math.max(K-S,0);const pnl=(side==='BUY'?intrinsic-prem:prem-intrinsic)*lot;const breakeven=type==='CE'?K+prem:K-prem;const curIntrinsic=current==null?null:(type==='CE'?Math.max(current-K,0):Math.max(K-current,0));const curPnl=current==null?null:(side==='BUY'?curIntrinsic-prem:prem-curIntrinsic)*lot;$('payResult').innerHTML=`<b>${side} ${type} expiry P/L: ${curPnlFmt(pnl)}</b><br><span class="muted">Intrinsic ${fmt(intrinsic)} • Break-even ${fmt(breakeven)} • Lot ${fmtInt(lot)}${curPnl!=null?` • Current intrinsic P/L (approx. before exit costs) ${curPnlFmt(curPnl)}`:''}</span>`});
@@ -639,6 +696,20 @@ function localAIAnswer(question){
   return lines.join('\n');
 }
 async function askFloatingAI(){const input=$('aiFloatQuestion'),q=input.value.trim();if(!q)return;const box=$('aiFloatMessages');box.insertAdjacentHTML('beforeend','<div class="msg user"><b>You:</b> '+esc(q)+'</div><div class="msg ai" id="aiFloatBusy">Analysing selected CE/PE…</div>');box.scrollTop=box.scrollHeight;input.value='';const busy=$('aiFloatBusy');try{const payload={question:q,...selectedAIContext(),chain:state.chain.slice(0,160)};const res=await apiFetch('/ai/chat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});const j=await res.json();if(!res.ok)throw Error(j.detail||'AI request failed');busy.innerHTML='<b>AI:</b> '+esc(j.answer||'No answer returned.')+(j.webSearched?'<div class="webCite">🌐 Web search used.</div>':'')}catch(e){busy.innerHTML='<b>AI (local):</b> '+esc(localAIAnswer(q))+'<div class="webCite">Gateway AI/web search is unavailable right now; local CE/PE calculation is still active.</div>'}box.scrollTop=box.scrollHeight}
-(function initFloatingAI(){const b=$('aiFloat');if(!b)return;b.addEventListener('click',e=>{if(b.dataset.dragged==='1'){b.dataset.dragged='0';return}openAIFloat()});$('aiFloatClose')?.addEventListener('click',closeAIFloat);$('aiFloatAsk')?.addEventListener('click',askFloatingAI);$('aiFloatQuestion')?.addEventListener('keydown',e=>{if(e.key==='Enter')askFloatingAI()});let drag=false,moved=false,ox=0,oy=0;const start=e=>{const t=e.touches?e.touches[0]:e;drag=true;moved=false;const r=b.getBoundingClientRect();ox=t.clientX-r.left;oy=t.clientY-r.top;e.preventDefault()};const move=e=>{if(!drag)return;const t=e.touches?e.touches[0]:e;const x=Math.max(4,Math.min(innerWidth-b.offsetWidth-4,t.clientX-ox)),y=Math.max(4,Math.min(innerHeight-b.offsetHeight-4,t.clientY-oy));b.style.left=x+'px';b.style.top=y+'px';b.style.right='auto';b.style.bottom='auto';moved=true;e.preventDefault()};const end=()=>{if(moved)b.dataset.dragged='1';drag=false};b.addEventListener('pointerdown',start);window.addEventListener('pointermove',move,{passive:false});window.addEventListener('pointerup',end);b.addEventListener('touchstart',start,{passive:false});window.addEventListener('touchmove',move,{passive:false});window.addEventListener('touchend',end)})();
+(function initFloatingAI(){
+  const b=$('aiFloat');if(!b)return;
+  let drag=false,moved=false,ox=0,oy=0;
+  b.addEventListener('click',e=>{if(b.dataset.dragged==='1'){b.dataset.dragged='0';return}openAIFloat()});
+  $('aiFloatClose')?.addEventListener('click',closeAIFloat);
+  $('aiFloatAsk')?.addEventListener('click',askFloatingAI);
+  $('aiFloatQuestion')?.addEventListener('keydown',e=>{if(e.key==='Enter')askFloatingAI()});
+  const start=e=>{const t=e;drag=true;moved=false;const r=b.getBoundingClientRect();ox=t.clientX-r.left;oy=t.clientY-r.top;b.setPointerCapture?.(e.pointerId);};
+  const move=e=>{if(!drag)return;const x=Math.max(4,Math.min(innerWidth-b.offsetWidth-4,e.clientX-ox)),y=Math.max(4,Math.min(innerHeight-b.offsetHeight-4,e.clientY-oy));b.style.left=x+'px';b.style.top=y+'px';b.style.right='auto';b.style.bottom='auto';moved=true;};
+  const end=()=>{if(moved)b.dataset.dragged='1';drag=false};
+  b.addEventListener('pointerdown',start);
+  b.addEventListener('pointermove',move);
+  b.addEventListener('pointerup',end);
+  b.addEventListener('pointercancel',end);
+})();
 </script>
 </body></html>
