@@ -630,10 +630,35 @@ function csvAutoTime(rows,file){for(const r of rows){for(let i=0;i<r.length;i++)
 async function loadCSV(file){
   if(!file)throw Error('No file selected.');
   let text='';
-  if(typeof file.text==='function')text=await file.text();
+  if(file.__text!=null)text=String(file.__text);
+  else if(typeof file.text==='function')text=await file.text();
   else text=await new Promise((resolve,reject)=>{const fr=new FileReader();fr.onload=()=>resolve(String(fr.result||''));fr.onerror=()=>reject(Error('Android could not read this file. Please choose the CSV again.'));fr.readAsText(file)});
   if(!text||text.trim().length<20)throw Error('CSV file is empty or could not be read by Android.');
   if(!/\.csv$/i.test(file.name)&&!/^text\/(csv|plain)/i.test(file.type||''))throw Error('Please select the NSE Option Chain CSV file.');
+window.__androidSelectedFile=async function(name,mime,base64){
+  try{
+    const bin=atob(base64||'');
+    const bytes=new Uint8Array(bin.length);
+    for(let i=0;i<bin.length;i++)bytes[i]=bin.charCodeAt(i);
+    const text=new TextDecoder('utf-8').decode(bytes);
+    const file={name:String(name||'selected.csv'),type:String(mime||'text/csv'),lastModified:Date.now(),__text:text};
+    setStatus('READING CSV…','warn');
+    $('age').textContent='Reading '+file.name+' from Android storage…';
+    await loadCSV(file);
+    renderAll();
+    setStatus(state.captureAt && !freshState().ok?'CSV LOADED • OLD DATA • CALCULATIONS ACTIVE':'CSV LOADED • AUTO ANALYSIS','good');
+    $('audit').insertAdjacentHTML('afterbegin','<div class="flag ok"><b>FILE UPLOADED + SAVED</b><span class="muted">'+esc(file.name)+' • Android storage backup complete • '+state.chain.length+' strikes detected</span></div>');
+  }catch(err){
+    setStatus('CSV ERROR','bad');
+    $('age').textContent='Android file read failed';
+    $('audit').innerHTML='<div class="flag block"><b>CSV upload failed</b><span class="muted">'+esc(err?.message||err)+'</span></div>';
+  }
+};
+window.__androidFileError=function(message){
+  setStatus('FILE READ ERROR','bad');
+  $('age').textContent='Android could not read the selected file';
+  $('audit').innerHTML='<div class="flag block"><b>Android file read failed</b><span class="muted">'+esc(message||'Unknown file read error')+'</span></div>';
+};
 const rows=parseCSV(text);const chain=inferChain(rows);const detected=detectIndexSymbol(file,rows);setIndexSymbol(detected);const time=csvAutoTime(rows,file);const userSpot=(()=>{const best=chain.filter(x=>x.ce.ltp!=null&&x.pe.ltp!=null).map(x=>({strike:x.strike,sum:x.ce.ltp+x.pe.ltp})).sort((a,b)=>a.sum-b.sum)[0];return best?.strike??null})();const expiry=((file.name.match(/(\d{1,2}[-_ ]+[A-Za-z]{3}[-_ ]+\d{4})/)||[])[1])||null;state.loadedFile=file.name;addSnapshot(chain,{captureAt:time,spot:userSpot,spotSource:userSpot!=null?'manual CSV spot':'estimated/no trusted spot',expiry,captureSource:time?'CSV timestamp/file time':'UNVERIFIED',source:'CSV'});if(time){$('csvTime').value=new Date(time).toISOString().slice(0,16)}setStatus(time?(freshState().ok?'CSV LOADED • AUTO ANALYSIS':'CSV LOADED • OLD DATA • CALCULATIONS ACTIVE'):'CSV LOADED • CALCULATIONS ACTIVE','good');updateLearning().catch(()=>{});loadTransitionMemory().catch(()=>{});$('audit').insertAdjacentHTML('afterbegin',`<div class="flag ok"><b>NSE CSV loaded successfully</b><span class="muted">${chain.length} strikes detected • ${esc(file.name)} • ${time?'capture time verified':'timestamp not available; current-trade freshness remains blocked'}</span></div>`)}
 async function persistLiveSnapshot(){
   if(!state.chain.length || !state.captureAt) return;
