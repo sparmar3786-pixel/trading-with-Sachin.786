@@ -635,7 +635,7 @@ async function loadCSV(file){
   else text=await new Promise((resolve,reject)=>{const fr=new FileReader();fr.onload=()=>resolve(String(fr.result||''));fr.onerror=()=>reject(Error('Android could not read this file. Please choose the CSV again.'));fr.readAsText(file)});
   if(!text||text.trim().length<20)throw Error('CSV file is empty or could not be read by Android.');
   if(!/\.csv$/i.test(file.name)&&!/^text\/(csv|plain)/i.test(file.type||''))throw Error('Please select the NSE Option Chain CSV file.');
-window.__androidSelectedFile=async function(name,mime,base64){
+window.__androidSelectedFile=async function(name,mime,base64,saved){
   try{
     const bin=atob(base64||'');
     const bytes=new Uint8Array(bin.length);
@@ -647,7 +647,7 @@ window.__androidSelectedFile=async function(name,mime,base64){
     await loadCSV(file);
     renderAll();
     setStatus(state.captureAt && !freshState().ok?'CSV LOADED • OLD DATA • CALCULATIONS ACTIVE':'CSV LOADED • AUTO ANALYSIS','good');
-    $('audit').insertAdjacentHTML('afterbegin','<div class="flag ok"><b>FILE UPLOADED + SAVED</b><span class="muted">'+esc(file.name)+' • Android storage backup complete • '+state.chain.length+' strikes detected</span></div>');
+    $('audit').insertAdjacentHTML('afterbegin','<div class="flag ok"><b>FILE UPLOADED '+(saved?' + SAVED':'')+'</b><span class="muted">'+esc(file.name)+' • '+(saved?'saved in Downloads/NIFTY Option AI':'analysis loaded; storage backup failed')+' • '+state.chain.length+' strikes detected</span></div>');
   }catch(err){
     setStatus('CSV ERROR','bad');
     $('age').textContent='Android file read failed';
