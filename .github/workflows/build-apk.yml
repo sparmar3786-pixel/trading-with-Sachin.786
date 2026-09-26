@@ -25,19 +25,31 @@ jobs:
         with:
           gradle-version: '8.11.1'
 
-      - name: Check project
+      - name: Check Gradle files
         run: |
-          pwd
+          echo "=== ROOT ==="
           ls -la
-          ls -la app || true
+          echo "=== APP ==="
+          ls -la app
+          echo "=== SETTINGS ==="
+          cat settings.gradle
+          echo "=== ROOT BUILD ==="
+          cat build.gradle
+          echo "=== APP BUILD ==="
+          cat app/build.gradle
 
       - name: Build APK
-        run: gradle :app:assembleDebug --stacktrace
+        run: |
+          gradle --version
+          gradle :app:assembleDebug --stacktrace --info
 
       - name: Check APK
-        run: ls -lh app/build/outputs/apk/debug/
+        if: success()
+        run: |
+          ls -lh app/build/outputs/apk/debug/
 
       - name: Upload APK
+        if: success()
         uses: actions/upload-artifact@v4
         with:
           name: NIFTY-Option-AI-debug
