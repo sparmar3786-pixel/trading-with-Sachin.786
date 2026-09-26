@@ -48,12 +48,12 @@ jobs:
 
       - name: Create missing Android source files
         run: |
-          mkdir -p app/src/main/java/com/sachin/niftyoptionai
+          mkdir -p app/src/main/java/com/sachin/sp786optionai
           mkdir -p app/src/main/res/values
           mkdir -p app/src/main/assets
 
-          cat > app/src/main/java/com/sachin/niftyoptionai/MainActivity.java <<'EOF'
-          package com.sachin.niftyoptionai;
+          cat > app/src/main/java/com/sachin/sp786optionai/MainActivity.java <<'EOF'
+          package com.sachin.sp786optionai;
 
           import android.app.Activity;
           import android.os.Bundle;
@@ -292,7 +292,7 @@ jobs:
           test -f build.gradle
           test -f app/build.gradle
           test -f app/src/main/AndroidManifest.xml
-          test -f app/src/main/java/com/sachin/niftyoptionai/MainActivity.java
+          test -f app/src/main/java/com/sachin/sp786optionai/MainActivity.java
           test -f app/src/main/res/values/styles.xml
           test -f app/src/main/assets/index.html
           echo "Android project structure OK"
