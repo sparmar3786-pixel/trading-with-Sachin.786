@@ -200,9 +200,9 @@ th:nth-child(2),th:nth-child(3),th:nth-child(4),th:nth-child(5){background:linea
 
   <div class="row">
     <div class="card wide">
-      <div class="notify"><div><div class="k">Groww Live Feed</div><div class="bigNote">Official Groww API • open your Groww account/API page from the app, then connect with an official access token. Groww web password/OTP is never collected here.</div></div><span id="brokerDot" class="pill warn">DISCONNECTED</span></div>
+      <div class="notify"><div><div class="k">Groww Live Feed</div><div class="bigNote">Official Groww login opens inside this app. Your Groww password/OTP is entered only on Groww's official page; this app does not read or store it. After login, use Groww Trading API access for live data.</div></div><span id="brokerDot" class="pill warn">DISCONNECTED</span></div>
       <div style="display:flex;gap:8px;flex-wrap:wrap;margin:8px 0 2px">
-        <button id="openGrowwBtn" class="small" type="button">Open Groww Account / API</button>
+        <button id="openGrowwBtn" class="small" type="button">Login to Groww</button>
         <button id="openGrowwDocsBtn" class="small" type="button">Groww API Docs</button>
         <span class="pill blue">LIVE DATA → AI → INDICATORS</span>
       </div>
@@ -422,8 +422,8 @@ async function scanIndices(){
 }
 function notifyUser(msg){if('Notification' in window && Notification.permission==='granted') new Notification('NIFTY Option AI', {body:msg});}
 async function enableNotifications(){if(!('Notification' in window)){alert('Browser notifications are not supported.');return}const p=await Notification.requestPermission(); $('notifyBtn').textContent=p==='granted'?'Notifications ON':'Notifications blocked'; if(p==='granted')notifyUser('NIFTY Option AI alerts enabled.');}
-function openExternal(url){try{window.open(url,'_blank','noopener,noreferrer');}catch(_){location.href=url}}
-function openGrowwAccount(){openExternal('https://groww.in/trade-api')}
+function openExternal(url){try{location.href=url}catch(_){location.href=url}}
+function openGrowwAccount(){openExternal('https://groww.in/cdslauth')}
 function openGrowwDocs(){openExternal('https://groww.in/trade-api/docs/curl')}
 function alertSignalChange(){const e=setupEngine(); if(!e)return; const view=e.blocked?'BLOCKED':e.combined?'CE+PE EXPANSION':e.ceEligible?'CE BUY WATCH':e.peEligible?'PE BUY WATCH':'WAIT'; if(lastAIView && view!==lastAIView)notifyUser('Signal state changed: '+view); lastAIView=view}
 function renderAll(){renderTop();renderStrikeSelect();const e=setupEngine();renderAudit(e);renderOverride(e);renderBuyer(e);renderSeller(e);renderTransition(e);renderChain();renderStrikeMap(e);renderCombined(e);renderSnapshots();renderLog(e);updateLevelsTable()}
