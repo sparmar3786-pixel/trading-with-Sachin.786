@@ -32,12 +32,10 @@ jobs:
           ls -la app || true
 
       - name: Build APK
-        run: |
-          gradle :app:assembleDebug --stacktrace
+        run: gradle :app:assembleDebug --stacktrace
 
       - name: Check APK
-        run: |
-          ls -lh app/build/outputs/apk/debug/
+        run: ls -lh app/build/outputs/apk/debug/
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
