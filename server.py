@@ -608,8 +608,9 @@ async def gemini_chat(payload: dict[str, Any]):
     if not GEMINI_API_KEY:
         raise HTTPException(status_code=503, detail='Gemini AI is not configured on the server. Set GEMINI_API_KEY in the server secret store.')
     question = str(payload.get('question') or '').strip()
-    if not question:
-        raise HTTPException(status_code=400, detail='Question is required.')
+    thoughts = str(payload.get('thoughts') or '').strip()
+    if not question and not thoughts:
+        raise HTTPException(status_code=400, detail='Question or thoughts are required.')
 
     context = {
         'symbol': str(payload.get('symbol') or 'NIFTY'),
@@ -622,22 +623,28 @@ async def gemini_chat(payload: dict[str, Any]):
         'fresh': bool(payload.get('fresh')),
         'source': str(payload.get('source') or 'uploaded/live option-chain'),
         'verified_intraday_bars': int(payload.get('bars') or 0),
+        'thoughts': thoughts,
     }
     chain = payload.get('chain') or []
     context['nearby_chain'] = chain[:160] if isinstance(chain, list) else []
 
     system_instruction = (
-        'You are the Gemini AI analyst inside NIFTY Option AI. '
-        'Analyze the supplied CSV/option-chain data first. The selected strike CE and PE are primary evidence. '
-        'Use OI, delta OI, LTP/premium, premium change, volume, IV, bid/ask, previous snapshot, ATM/near-ATM structure and PCR when available. '
-        'Never invent missing market values. Clearly distinguish OBSERVED DATA, CALCULATED INFERENCE and WEB FACTS. '
-        'If the user asks for current external information, news, events, rules or facts outside the supplied data, use Google Search grounding. '
+        'You are Your Mind AI inside NIFTY Option AI, powered by Gemini 2.5 Flash. '
+        'Analyze user thoughts, notes, ideas, business concepts and supplied CSV/option-chain data logically. '
+        'When option-chain data is present, selected strike CE and PE are primary market evidence; use OI, delta OI, LTP/premium, premium change, volume, IV, bid/ask, previous snapshot, ATM/near-ATM structure and PCR when available. '
+        'For general thoughts or business ideas, organize the input into key points, assumptions, risks, opportunities, missing information and practical next steps. '
+        'Never invent missing market values or facts. Clearly distinguish OBSERVED DATA, CALCULATED INFERENCE and WEB FACTS. '
+        'If the user asks for current external information, market trends, news, events, rules or facts outside supplied data, use Google Search grounding. '
         'If data is stale, explicitly say it is old but calculations may still be performed; do not present stale data as live. '
         'Do not claim guaranteed profit, certainty, hidden buyer/seller identity or a guaranteed outcome. '
         'Answer in concise Hinglish/Hindi when the user asks in Hinglish/Hindi. '
         'For data questions, explain the calculation used when useful.'
     )
-    user_text = 'User question: ' + question + '\n\nCURRENT DATA CONTEXT:\n' + json.dumps(context, separators=(',', ':'), default=str)
+    user_text = (
+        ('USER THOUGHTS / NOTES:\n' + thoughts + '\n\n') if thoughts else ''
+    ) + (
+        ('USER QUESTION:\n' + question + '\n\n') if question else ''
+    ) + 'CURRENT DATA CONTEXT:\n' + json.dumps(context, separators=(',', ':'), default=str)
 
     def _generate():
         from google import genai
@@ -695,9 +702,9 @@ async def ai_chat(payload: dict[str, Any]):
         raise HTTPException(status_code=503, detail='External AI is not configured. Set GEMINI_API_KEY (preferred) or OPENAI_API_KEY in the server secret store.')
     question=str(payload.get('question') or '').strip()
     if not question: raise HTTPException(status_code=400,detail='Question is required.')
-    context={'symbol':str(payload.get('symbol') or 'NIFTY'),'spot':parse_num(payload.get('spot')),'expiry':str(payload.get('expiry') or ''),'selectedStrike':parse_num(payload.get('selectedStrike')),'ce':payload.get('ce') or {},'pe':payload.get('pe') or {},'previous':payload.get('previous') or {},'fresh':bool(payload.get('fresh')),'source':str(payload.get('source') or 'option-chain'),'verified_intraday_bars':int(payload.get('bars') or 0)}
+    context={'symbol':str(payload.get('symbol') or 'NIFTY'),'spot':parse_num(payload.get('spot')),'expiry':str(payload.get('expiry') or ''),'selectedStrike':parse_num(payload.get('selectedStrike')),'ce':payload.get('ce') or {},'pe':payload.get('pe') or {},'previous':payload.get('previous') or {},'fresh':bool(payload.get('fresh')),'source':str(payload.get('source') or 'option-chain'),'verified_intraday_bars':int(payload.get('bars') or 0),'thoughts':str(payload.get('thoughts') or '').strip()}
     chain=payload.get('chain') or [];context['nearby_chain']=chain[:80] if isinstance(chain,list) else []
-    system_prompt=('You are the floating AI assistant inside NIFTY Option AI. Use selected-strike CE and PE data as primary market evidence. For current external information, news, rules, events, facts or anything outside supplied data, use web search before answering. Never invent market values. Clearly label observed data, calculated inference and web-sourced facts. Compare CE vs PE OI, delta OI, LTP, premium change, volume, IV, bid/ask and previous snapshot when present. If data is stale or missing, say so. Do not claim guaranteed profit or hidden buyer/seller identity. Answer quickly and directly in Hinglish when user writes Hinglish/Hindi. Include source links/citations when web search is used.')
+    system_prompt=('You are Your Mind AI, the floating Gemini assistant inside NIFTY Option AI. Analyze user thoughts, notes, ideas and selected-strike CE/PE data. Use selected-strike CE and PE data as primary market evidence when present. For general ideas, organize key points, assumptions, risks, opportunities, missing information and practical next steps. For current external information, news, rules, events, facts or anything outside supplied data, use web search before answering. Never invent market values. Clearly label observed data, calculated inference and web-sourced facts. Compare CE vs PE OI, delta OI, LTP, premium change, volume, IV, bid/ask and previous snapshot when present. If data is stale or missing, say so. Do not claim guaranteed profit or hidden buyer/seller identity. Answer quickly and directly in Hinglish when user writes Hinglish/Hindi. Include source links/citations when web search is used.')
     body={'model':OPENAI_MODEL,'tools':[{'type':'web_search','search_context_size':'low'}],'input':[{'role':'system','content':[{'type':'input_text','text':system_prompt}]},{'role':'user','content':[{'type':'input_text','text':'User question: '+question+'\n\nSelected-strike context:\n'+json.dumps(context,separators=(',',':'),default=str)}]}],'max_output_tokens':1200}
     try:
         timeout=httpx.Timeout(float(OPENAI_TIMEOUT_SEC),connect=8.0)
