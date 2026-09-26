@@ -2,6 +2,16 @@
 
 This COPY contains the expanded rule engine discussed for the option-chain analyzer. The original V1 ZIP remains separate and is not modified by this build.
 
+## Build the Android APK
+
+The Android WebView shell and the bundled dashboard are in `android_app/`. Build a debug APK with:
+
+```bash
+gradle -p android_app assembleDebug --no-daemon
+```
+
+The resulting installable file is `android_app/app/build/outputs/apk/debug/app-debug.apk`. The **Build NIFTY Option AI APK** GitHub Actions workflow runs the same build and uploads that APK as an artifact.
+
 ## Added logic
 
 1. **Freshness gate**
