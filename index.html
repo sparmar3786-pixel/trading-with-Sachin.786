@@ -217,8 +217,8 @@ th:nth-child(2),th:nth-child(3),th:nth-child(4),th:nth-child(5){background:linea
 
   <div class="aiGrid">
     <div class="card">
-      <div class="notify"><div><div class="k">AI Market Auditor</div><div class="bigNote">Chat-style audit • live NSE evidence • seller/buyer contradiction check</div></div><button id="notifyBtn" class="small">Enable Notifications</button></div>
-      <div id="aiChat" class="aiChat"><div class="msg ai">AI Auditor ready. Optional server authentication is supported. I will audit freshness, OI/ΔOI, premium, volume, short covering, opposite-side risk, previous 1D/1W/1M levels and the current signal gate.</div></div>
+      <div class="notify"><div><div class="k">AI Market Auditor <span id="aiProviderStatus" class="pill warn">EXTERNAL AI: CHECKING</span></div><div class="bigNote">External GPT audit • live NSE evidence • seller/buyer contradiction check • no secret key in APK</div></div><button id="notifyBtn" class="small">Enable Notifications</button></div>
+      <div id="aiChat" class="aiChat"><div class="msg ai">External AI Auditor ready. It receives only the current structured market data from the server. If the server AI key is not configured, the core rule engine remains available.</div></div>
       <div class="chatbar"><input id="aiQuestion" class="input" placeholder="Ask: 'PE buy safe hai?' / 'CE short covering ho rahi hai?' / 'Full audit' ><button id="aiAsk">Audit</button></div>
     </div>
     <div class="card">
@@ -241,7 +241,7 @@ th:nth-child(2),th:nth-child(3),th:nth-child(4),th:nth-child(5){background:linea
 <script>
 const $=id=>document.getElementById(id);
 const cfg={freshMaxSec:300,warnSec:120,autoRefreshSec:30,buyerSLPctDefault:8,sellerSLPct:25,sellerTargetPct:50,minSnapshotsForHigh:3,minBarMinutes:3,oppositeBufferStrikes:1,shortCoverScoreStrong:70};
-const state={snapshots:[],chain:[],spot:null,spotSource:'',expiry:null,captureAt:null,captureSource:'',source:'',reference:{},gateway:$('gateway').value.trim(),appToken:'',live:false,liveTimer:null,loadedFile:null,lastError:'',bars:[],learning:null};
+const state={symbol:'NIFTY',snapshots:[],chain:[],spot:null,spotSource:'',expiry:null,captureAt:null,captureSource:'',source:'',reference:{},gateway:$('gateway').value.trim(),appToken:'',live:false,liveTimer:null,loadedFile:null,lastError:'',bars:[],learning:null};
 const num=x=>{if(x===undefined||x===null||x===''||x==='-')return null;const n=Number(String(x).replace(/,/g,''));return Number.isFinite(n)?n:null};
 const esc=x=>String(x??'').replace(/[&<>"']/g,s=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[s]));
 const fmt=n=>n==null?'—':Number(n).toLocaleString('en-IN',{maximumFractionDigits:2});
@@ -376,9 +376,21 @@ async function aiAudit(question){
   const q=question||$('aiQuestion').value.trim()||'Full audit of current market';
   addAI('user',q); $('aiQuestion').value='';
   const e=setupEngine(); const fr=freshState();
-  try{const res=await apiFetch('/ai/audit',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({question:q,chain:state.chain,spot:state.spot,fresh:fr.ok,bars:e?.bars?1:0})});
-    const j=await res.json(); addAI('ai',j.answer||'No audit response');
-  }catch(err){addAI('ai','Local AI audit unavailable: '+err.message+'\nCore rule engine remains active.');}
+  const payload={question:q,symbol:state.symbol||$('indexSelect')?.value||'NIFTY',chain:state.chain,spot:state.spot,expiry:state.expiry||'',source:state.source||'CSV/live',fresh:fr.ok,bars:e?.bars?1:0};
+  try{
+    $('aiProviderStatus').textContent='EXTERNAL AI: RUNNING';
+    $('aiProviderStatus').className='pill blue';
+    const res=await apiFetch('/ai/openai-audit',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
+    const j=await res.json();
+    if(!res.ok) throw Error(j.detail||('HTTP '+res.status));
+    $('aiProviderStatus').textContent='EXTERNAL AI: '+(j.model||'ONLINE');
+    $('aiProviderStatus').className='pill good';
+    addAI('ai',j.answer||'No external AI response');
+  }catch(err){
+    $('aiProviderStatus').textContent='EXTERNAL AI: OFFLINE';
+    $('aiProviderStatus').className='pill bad';
+    addAI('ai','External AI unavailable: '+err.message+'\nCore rule engine remains active. Configure OPENAI_API_KEY on the server; never put the key in the APK.');
+  }
 }
 async function scanIndices(){
   try{const res=await apiFetch('/proxy/nse-all-indices',{cache:'no-store'}); if(!res.ok)throw Error('HTTP '+res.status); const j=await res.json();
