@@ -3,11 +3,11 @@ plugins {
 }
 
 android {
-    namespace 'com.sachin.niftyoptionai'
+    namespace 'com.sachin.sp786optionai'
     compileSdk 35
 
     defaultConfig {
-        applicationId 'com.sachin.niftyoptionai'
+        applicationId 'com.sachin.sp786optionai'
         minSdk 23
         targetSdk 35
         versionCode 1
