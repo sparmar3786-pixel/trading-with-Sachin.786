@@ -27,11 +27,8 @@ jobs:
 
       - name: Check project
         run: |
-          echo "Current directory:"
           pwd
-          echo "Project files:"
           ls -la
-          echo "App directory:"
           ls -la app || true
 
       - name: Build APK
