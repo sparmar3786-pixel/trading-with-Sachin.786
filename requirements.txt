@@ -3,5 +3,5 @@ uvicorn>=0.30
 httpx>=0.27
 websockets>=15.0
 kiteconnect>=5.0.1
-growwapi>=1.0.0
+growwapi>=1.5.0
 keyring>=25.0
