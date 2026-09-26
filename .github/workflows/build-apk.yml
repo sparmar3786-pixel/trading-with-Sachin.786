@@ -53,9 +53,14 @@ jobs:
           import android.webkit.WebSettings;
           import android.webkit.WebView;
           import android.webkit.WebViewClient;
+          import android.webkit.ValueCallback;
+          import android.net.Uri;
+          import android.content.Intent;
 
           public class MainActivity extends Activity {
               private WebView web;
+              private ValueCallback<Uri[]> filePathCallback;
+              private static final int FILE_CHOOSER_REQUEST = 1001;
 
               @Override
               public void onCreate(Bundle state) {
@@ -69,9 +74,45 @@ jobs:
                   s.setBuiltInZoomControls(false);
                   s.setDisplayZoomControls(false);
                   web.setWebViewClient(new WebViewClient());
-                  web.setWebChromeClient(new WebChromeClient());
+                  web.setWebChromeClient(new WebChromeClient() {
+                      @Override
+                      public boolean onShowFileChooser(
+                              WebView view,
+                              ValueCallback<Uri[]> callback,
+                              FileChooserParams params) {
+                          if (filePathCallback != null) {
+                              filePathCallback.onReceiveValue(null);
+                          }
+                          filePathCallback = callback;
+                          try {
+                              Intent intent = params.createIntent();
+                              startActivityForResult(intent, FILE_CHOOSER_REQUEST);
+                              return true;
+                          } catch (Exception e) {
+                              filePathCallback = null;
+                              callback.onReceiveValue(null);
+                              return false;
+                          }
+                      }
+                  });
                   setContentView(web);
                   web.loadUrl("file:///android_asset/index.html");
+              }
+
+              @Override
+              protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+                  super.onActivityResult(requestCode, resultCode, data);
+                  if (requestCode == FILE_CHOOSER_REQUEST) {
+                      if (filePathCallback == null) return;
+                      Uri[] results = null;
+                      if (resultCode == RESULT_OK && data != null) {
+                          Uri uri = data.getData();
+                          if (uri != null) results = new Uri[]{uri};
+                          else results = WebChromeClient.FileChooserParams.parseResult(resultCode, data);
+                      }
+                      filePathCallback.onReceiveValue(results);
+                      filePathCallback = null;
+                  }
               }
 
               @Override
