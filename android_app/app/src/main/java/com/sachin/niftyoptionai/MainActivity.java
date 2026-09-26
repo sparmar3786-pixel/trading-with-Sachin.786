@@ -10,6 +10,11 @@ import android.net.Uri;
 
 public class MainActivity extends Activity {
     private WebView web;
+    /**
+     * Creates the WebView and loads the bundled dashboard.
+     *
+     * @param state the activity state supplied by Android
+     */
     @Override public void onCreate(Bundle state) {
         super.onCreate(state);
         web = new WebView(this);
@@ -25,6 +30,7 @@ public class MainActivity extends Activity {
         setContentView(web);
         web.loadUrl("file:///android_asset/index.html");
     }
+    /** Navigates back within the WebView, or delegates to Android when no page remains. */
     @Override public void onBackPressed() {
         if (web.canGoBack()) web.goBack(); else super.onBackPressed();
     }
