@@ -1,0 +1,159 @@
+{
+  "fresh_trade_max_age_seconds": 300,
+  "warn_age_seconds": 120,
+  "required_fields": [
+    "strike",
+    "ce.ltp",
+    "ce.oi",
+    "ce.doi",
+    "ce.vol",
+    "pe.ltp",
+    "pe.oi",
+    "pe.doi",
+    "pe.vol"
+  ],
+  "reference_periods": [
+    "1D",
+    "1W",
+    "1M"
+  ],
+  "short_covering": "premium_up + OI_down + volume_expansion",
+  "opposite_side_override": true,
+  "no_intraday_bars_no_high_confidence": true,
+  "ai_auditor": {
+    "enabled": true,
+    "mode": "local_auditable_rule_engine",
+    "chat_style": true,
+    "never_claim_hidden_seller_sl": true
+  },
+  "multi_index_watch": {
+    "enabled": true,
+    "endpoint": "/proxy/nse-all-indices",
+    "alert_percent_move": 0.5,
+    "poll_with_live_engine": true
+  },
+  "notifications": {
+    "browser_permission_required": true,
+    "signal_state_change": true,
+    "material_index_move": true
+  },
+  "market_data": {
+    "provider": "OFFICIAL_BROKER_OR_NSE",
+    "broker_options": [
+      "GROWW",
+      "DHAN",
+      "ZERODHA",
+      "NSE_AUTHORIZED_VENDOR"
+    ],
+    "authenticated_websocket_preferred": true,
+    "required_env": [
+      "UPSTOX_ACCESS_TOKEN",
+      "UPSTOX_INSTRUMENT_KEYS"
+    ],
+    "persistent_db": "backend/market_memory.sqlite3",
+    "broker_ui": "api_key_and_access_token_entered_in_app_not_persisted",
+    "zerodha": {
+      "websocket": "KiteTicker",
+      "auto_instrument_discovery": true,
+      "subscribe_modes": [
+        "full"
+      ],
+      "nearest_expiries": 2,
+      "max_instruments": 2900,
+      "live_ticks_persisted": true
+    },
+    "credential_policy": "Credentials/tokens are held in server memory only; do not store in browser localStorage or SQLite.",
+    "official_connectors": {
+      "GROWW": {
+        "mode": "official_api",
+        "option_chain": true,
+        "live_feed": true,
+        "max_subscriptions": 1000
+      },
+      "DHAN": {
+        "mode": "official_api",
+        "option_chain": true,
+        "websocket": true,
+        "data_only": true
+      },
+      "ZERODHA": {
+        "mode": "official_websocket"
+      }
+    },
+    "failover_policy": "provider_switch_requires_fresh_validated_snapshot",
+    "no_password_scraping": true,
+    "groww": {
+      "auth": "official_access_token_or_api_key_totp_flow",
+      "password_scraping": false,
+      "option_chain_poll_seconds": 3
+    },
+    "dhan": {
+      "auth": "official_client_id_access_token",
+      "option_chain_poll_seconds": 3,
+      "nifty_underlying_security_id": 13
+    }
+  },
+  "transition_memory": {
+    "enabled": true,
+    "stages": [
+      "A",
+      "B",
+      "C"
+    ],
+    "record_every_live_snapshot": true,
+    "min_stage_c_score": 70
+  },
+  "production_hardening": {
+    "app_auth": {
+      "env": "APP_ACCESS_TOKEN",
+      "header": "X-App-Token",
+      "enabled_when_env_set": true
+    },
+    "https": {
+      "env": "REQUIRE_HTTPS",
+      "reverse_proxy_headers": "X-Forwarded-Proto",
+      "enabled_when_env_set": true
+    },
+    "cors": {
+      "env": "TRUSTED_ORIGINS"
+    },
+    "secrets": {
+      "default": "session_memory_only",
+      "optional": "OS_keyring",
+      "never": "browser_localStorage_or_SQLite"
+    },
+    "reconnect": {
+      "broker_library_backoff": true,
+      "watchdog_sec": 60,
+      "max_attempts": 50,
+      "max_sockets": 3,
+      "max_tokens_per_socket": 3000
+    },
+    "database": {
+      "journal_mode": "WAL",
+      "tick_batching": true,
+      "tick_retention_days": 7,
+      "snapshot_retention_days": 30,
+      "transition_retention_days": 365
+    },
+    "monitoring": {
+      "health": "/health",
+      "metrics": "/ops/metrics",
+      "security": "/ops/security",
+      "feed_status": "/feed/status"
+    },
+    "broker_snapshots": {
+      "interval_seconds": 30,
+      "symbols": [
+        "NIFTY",
+        "BANKNIFTY"
+      ],
+      "oi_delta_label": "broker_interval_snapshot_delta"
+    }
+  },
+  "security": {
+    "app_mpin": "local_4_digit_lock",
+    "broker_credentials": "server_memory_or_os_keyring_only",
+    "never_store": "browser_localStorage_or_SQLite"
+  }
+}
