@@ -158,8 +158,8 @@ jobs:
                       }
                       if (results != null && results.length > 0) {
                           Uri selected = results[0];
-                          saveSelectedFile(selected);
-                          deliverSelectedFileToWeb(selected);
+                          boolean saved = saveSelectedFile(selected);
+                          deliverSelectedFileToWeb(selected, saved);
                       }
                       // Native bridge owns the actual file read; this avoids Android WebView
                       // content:// permission/file API differences on different phones.
@@ -235,7 +235,7 @@ jobs:
                   }
               }
 
-              private void deliverSelectedFileToWeb(Uri uri) {
+              private void deliverSelectedFileToWeb(Uri uri, boolean saved) {
                   try {
                       ByteArrayOutputStream out = new ByteArrayOutputStream();
                       try (InputStream in = getContentResolver().openInputStream(uri)) {
@@ -249,7 +249,7 @@ jobs:
                       String mime = getContentResolver().getType(uri);
                       if (mime == null) mime = "text/csv";
                       final String js = "window.__androidSelectedFile && window.__androidSelectedFile("
-                              + JSONObject.quote(name) + "," + JSONObject.quote(mime) + "," + JSONObject.quote(base64) + ");";
+                              + JSONObject.quote(name) + "," + JSONObject.quote(mime) + "," + JSONObject.quote(base64) + "," + saved + ");";
                       web.post(() -> web.evaluateJavascript(js, null));
                   } catch (Exception e) {
                       android.util.Log.e("NIFTY_OPTION_AI", "Native file read failed", e);
