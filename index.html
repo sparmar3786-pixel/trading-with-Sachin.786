@@ -72,7 +72,12 @@ th{background:#10233a!important}td{padding:8px 7px}th{padding:9px 7px}
 }
 @media(max-width:380px){.grid{grid-template-columns:1fr}.topRight{grid-template-columns:1fr}.topRight .uploadHero{grid-column:auto}}
 </style>
-</head>
+<style id="mind-ai-v1">
+.mindAiPanel{margin:0 0 12px;border:1px solid #355579;border-radius:15px;background:linear-gradient(180deg,rgba(14,30,50,.98),rgba(8,18,31,.98));box-shadow:0 10px 32px rgba(0,0,0,.22);padding:12px}
+.mindAiHead{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:8px}.mindAiTitle{font-size:15px;font-weight:950}.mindAiSub{font-size:10px;color:#9eb3ce;margin-top:2px}
+.mindAiGrid{display:grid;grid-template-columns:1.15fr .85fr;gap:9px}.mindAiInput{min-height:105px;resize:vertical;width:100%;box-sizing:border-box}.mindAiActions{display:flex;gap:7px;flex-wrap:wrap;margin-top:7px}.mindAiActions button{min-height:40px}.mindAiStatus{font-size:10px;color:#9eb3ce;margin-top:7px}.mindAiSources{margin-top:7px;display:flex;gap:5px;flex-wrap:wrap}.mindAiSources a{font-size:9px;color:#8fbaff;text-decoration:none;border:1px solid #29476b;border-radius:999px;padding:3px 7px;background:#0d1b2d}.mindAiSources a:hover{text-decoration:underline}
+@media(max-width:850px){.mindAiGrid{grid-template-columns:1fr}}
+</style></head>
 <body>
 <div id="productionGate"><div class="gateItem"><span id="dataDot" class="dot"></span><b>DATA</b><span id="dataGate">WAIT</span></div><div class="gateItem"><span id="barsDot" class="dot"></span><b>BARS</b><span id="barsGate">WAIT</span></div><div class="gateItem"><span id="memoryDot" class="dot good"></span><b>MEMORY</b><span>ACTIVE</span></div><div class="gateItem"><span id="stateDot" class="dot warn"></span><b>SIGNAL</b><span id="signalGate" class="stateBox">WAIT</span></div><div class="gateItem"><b>1D/1W/1M</b><span>Reference levels</span></div></div>
 <div id="pinGate" style="position:fixed;inset:0;z-index:9999;background:#06101c;display:none;align-items:center;justify-content:center;padding:20px">
@@ -306,10 +311,22 @@ th{background:#10233a!important}td{padding:8px 7px}th{padding:9px 7px}
 </div>
 <div id="aiFloat" class="aiFloat" title="Drag anywhere • Tap to ask AI"><span class="aiFloatIcon">✦</span><span class="aiFloatLabel">AI</span></div>
 <div id="aiFloatPanel" class="aiFloatPanel" aria-hidden="true">
-  <div class="aiFloatHead"><b>AI LIVE ASSISTANT</b><button id="aiFloatClose" class="small">×</button></div>
+  <div class="aiFloatHead"><b>🧠 GEMINI MIND AI</b><button id="aiFloatClose" class="small">×</button></div>
   <div id="aiFloatContext" class="aiFloatContext">Selected strike: —</div>
-  <div id="aiFloatMessages" class="aiFloatMessages"><div class="msg ai">Ask anything. I can use the selected CE/PE data and web search for current external information.</div></div>
-  <div class="aiFloatBar"><input id="aiFloatQuestion" class="input" placeholder="Ask AI anything…"><button id="aiFloatAsk">Ask</button></div>
+  <div class="mindAiPanel" style="margin:0;border:0;padding:0;background:transparent;box-shadow:none">
+    <div class="mindAiHead">
+      <div><div class="mindAiTitle">Your Mind AI Assistant</div><div class="mindAiSub">Thoughts • notes • ideas • CSV/CE/PE data • Google Search grounding</div></div>
+    </div>
+    <textarea id="mindAiThoughts" class="input mindAiInput" placeholder="Apne thoughts, notes, business idea ya koi data yahan likhein…"></textarea>
+    <div class="mindAiActions">
+      <button id="mindAiAnalyze">Analyze &amp; Process</button>
+      <button id="mindAiClear" class="small">Clear</button>
+    </div>
+    <div id="mindAiStatus" class="mindAiStatus">Gemini 2.5 Flash • server-side key • selected CE/PE context auto-attached</div>
+  </div>
+  <div id="aiFloatMessages" class="aiFloatMessages"><div class="msg ai">Namaste! Apne thoughts/ideas likhkar Analyze karein, ya neeche follow-up question poochein. Current external facts ke liye Google Search grounding use ho sakti hai.</div></div>
+  <div id="aiFloatSources" class="mindAiSources"></div>
+  <div class="aiFloatBar"><input id="aiFloatQuestion" class="input" placeholder="Follow-up question…"><button id="aiFloatAsk">Ask</button></div>
 </div>
 <script>
 const $=id=>document.getElementById(id);
@@ -741,25 +758,80 @@ async function refreshJournalReplay(){
   }catch(e){console.warn('journal/replay',e)}
 }
 setTimeout(refreshJournalReplay,1200); setInterval(refreshJournalReplay,15000);
-function selectedAIContext(){const x=state.chain.find(r=>r.strike===num(state.selectedStrike))||findSelectedRow();return x?{symbol:state.symbol,spot:state.spot,expiry:state.expiry,selectedStrike:x.strike,ce:x.ce,pe:x.pe,previous:(previousRowForStrike(x.strike)||null),source:state.source,fresh:freshState().ok,bars:state.bars?.length||0}:{symbol:state.symbol,spot:state.spot,expiry:state.expiry,selectedStrike:null,source:state.source,fresh:freshState().ok,bars:state.bars?.length||0}}
-function updateAIFloatContext(){const q=selectedAIContext();$('aiFloatContext').textContent=q.selectedStrike!=null?(q.symbol+' • Strike '+fmt(q.selectedStrike)+' • '+(state.live?'LIVE':'SNAPSHOT')):'No strike selected — tap a strike first'}
-function openAIFloat(){updateAIFloatContext();$('aiFloatPanel').classList.add('open');$('aiFloatPanel').setAttribute('aria-hidden','false');setTimeout(()=>$('aiFloatQuestion')?.focus(),80)}
-function closeAIFloat(){$('aiFloatPanel').classList.remove('open');$('aiFloatPanel').setAttribute('aria-hidden','true')}
+function selectedAIContext(){
+  const x=state.chain.find(r=>r.strike===num(state.selectedStrike))||findSelectedRow();
+  return x
+    ? {symbol:state.symbol,spot:state.spot,expiry:state.expiry,selectedStrike:x.strike,ce:x.ce,pe:x.pe,previous:(previousRowForStrike(x.strike)||null),source:state.source,fresh:freshState().ok,bars:state.bars?.length||0}
+    : {symbol:state.symbol,spot:state.spot,expiry:state.expiry,selectedStrike:null,source:state.source,fresh:freshState().ok,bars:state.bars?.length||0}
+}
+function updateAIFloatContext(){
+  const q=selectedAIContext();
+  $('aiFloatContext').textContent=q.selectedStrike!=null
+    ? (q.symbol+' • Strike '+fmt(q.selectedStrike)+' • '+(state.live?'LIVE':'SNAPSHOT'))
+    : 'No strike selected • general Mind AI mode';
+}
+function openAIFloat(){
+  updateAIFloatContext();
+  $('aiFloatPanel').classList.add('open');
+  $('aiFloatPanel').setAttribute('aria-hidden','false');
+  setTimeout(()=>$('mindAiThoughts')?.focus(),80);
+}
+function closeAIFloat(){
+  $('aiFloatPanel').classList.remove('open');
+  $('aiFloatPanel').setAttribute('aria-hidden','true');
+}
 function localAIAnswer(question){
   const q=String(question||'').toLowerCase(),ctx=selectedAIContext(),x=ctx.selectedStrike!=null?state.chain.find(r=>r.strike===Number(ctx.selectedStrike)):null;
-  if(!x)return 'Pehle option-chain me kisi strike price par tap karein. Main usi strike ka CE + PE data analyse karunga.';
+  if(!x)return 'Local fallback: selected strike available nahi hai. Gateway/Gemini connect hone par general thoughts, ideas aur web-search questions analyse kiye ja sakte hain.';
   const ce=x.ce||{},pe=x.pe||{},prev=ctx.previous||null;
   const pct=(a,b)=>a!=null&&b!=null&&b!==0?((a-b)/b*100):null;
   const lines=[ctx.symbol+' '+fmt(x.strike)+' • '+(state.live?'LIVE':'SNAPSHOT'),'CE: OI '+signedInt(ce.oi)+' • ΔOI '+signedInt(ce.doi)+' • LTP '+fmt(ce.ltp)+' ('+signedFmt(ce.chg)+')','PE: OI '+signedInt(pe.oi)+' • ΔOI '+signedInt(pe.doi)+' • LTP '+fmt(pe.ltp)+' ('+signedFmt(pe.chg)+')'];
   if(prev)lines.push('Previous snapshot comparison: CE OI '+signedPct(pct(ce.oi,prev.ce?.oi))+' • PE OI '+signedPct(pct(pe.oi,prev.pe?.oi))+' • CE premium '+signedPct(pct(ce.ltp,prev.ce?.ltp))+' • PE premium '+signedPct(pct(pe.ltp,prev.pe?.ltp)));
   if(/ce|call/.test(q))lines.push('CE reading: '+strikeReading('ce',x,prev).reading);
   if(/pe|put/.test(q))lines.push('PE reading: '+strikeReading('pe',x,prev).reading);
-  if(/oi|open interest/.test(q))lines.push('OI view: ΔOI positive = OI increased; ΔOI negative = OI decreased. Green/red styling in the table follows the sign.');
+  if(/oi|open interest/.test(q))lines.push('OI view: ΔOI positive = OI increased; ΔOI negative = OI decreased.');
   if(/old|stale|purana|fresh/.test(q)){const fr=freshState();lines.push('Data freshness: '+fr.msg+'. Calculation remains active; live-entry gate is '+(fr.ok?'OPEN':'BLOCKED')+'.');}
-  if(lines.length===3)lines.push('Ask me about CE/PE OI, ΔOI, premium, volume, IV, bid/ask, stale data, or the selected strike.');
+  if(lines.length===3)lines.push('Ask about CE/PE OI, ΔOI, premium, volume, IV, bid/ask, stale data, or the selected strike.');
   return lines.join('\n');
 }
-async function askFloatingAI(){const input=$('aiFloatQuestion'),q=input.value.trim();if(!q)return;const box=$('aiFloatMessages');box.insertAdjacentHTML('beforeend','<div class="msg user"><b>You:</b> '+esc(q)+'</div><div class="msg ai" id="aiFloatBusy">Analysing selected CE/PE…</div>');box.scrollTop=box.scrollHeight;input.value='';const busy=$('aiFloatBusy');try{const payload={question:q,...selectedAIContext(),chain:state.chain.slice(0,160)};const res=await apiFetch('/ai/chat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});const j=await res.json();if(!res.ok)throw Error(j.detail||'AI request failed');busy.innerHTML='<b>AI:</b> '+esc(j.answer||'No answer returned.')+(j.webSearched?'<div class="webCite">🌐 Web search used.</div>':'')}catch(e){busy.innerHTML='<b>AI (local):</b> '+esc(localAIAnswer(q))+'<div class="webCite">Gateway AI/web search is unavailable right now; local CE/PE calculation is still active.</div>'}box.scrollTop=box.scrollHeight}
+function renderAISources(sources){
+  const box=$('aiFloatSources');if(!box)return;
+  box.innerHTML='';
+  (sources||[]).slice(0,6).forEach((s,i)=>{
+    const a=document.createElement('a');a.href=s.url;a.target='_blank';a.rel='noopener noreferrer';a.textContent='🌐 '+String(s.title||('Source '+(i+1))).slice(0,70);box.appendChild(a);
+  });
+}
+async function callMindAI(question,thoughts,busyEl){
+  const payload={question:question||'',thoughts:thoughts||'',...selectedAIContext(),chain:state.chain.slice(0,160)};
+  const res=await apiFetch('/ai/chat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
+  const j=await res.json();
+  if(!res.ok)throw Error(j.detail||'AI request failed');
+  if(busyEl)busyEl.innerHTML='<b>Gemini:</b> '+esc(j.answer||'No answer returned.')+(j.webSearched?'<div class="webCite">🌐 Google Search grounding used.</div>':'');
+  renderAISources(j.sources||[]);
+  $('mindAiStatus').textContent=(j.model||'Gemini')+' • '+(j.webSearched?'Google Search grounding used':'No web search needed')+' • '+(j.timeIST?fmtIST(j.timeIST):'');
+  return j;
+}
+async function analyzeMindAI(){
+  const input=$('mindAiThoughts'),thoughts=input.value.trim();
+  if(!thoughts){$('mindAiStatus').textContent='Pehle thoughts, notes, idea ya data enter karein.';input.focus();return}
+  const box=$('aiFloatMessages');
+  box.insertAdjacentHTML('beforeend','<div class="msg user"><b>You:</b> '+esc(thoughts)+'</div><div class="msg ai" id="mindAiBusy">Gemini is processing your thoughts and searching the web when needed…</div>');
+  box.scrollTop=box.scrollHeight;
+  const busy=$('mindAiBusy');
+  try{await callMindAI('',thoughts,busy)}
+  catch(e){busy.innerHTML='<b>AI (local):</b> '+esc(localAIAnswer(thoughts))+'<div class="webCite">Gateway/Gemini unavailable: '+esc(e.message||e)+'</div>';$('mindAiStatus').textContent='Gemini gateway unavailable • local option-chain fallback active'}
+  box.scrollTop=box.scrollHeight;
+}
+async function askFloatingAI(){
+  const input=$('aiFloatQuestion'),q=input.value.trim();if(!q)return;
+  const box=$('aiFloatMessages');
+  box.insertAdjacentHTML('beforeend','<div class="msg user"><b>You:</b> '+esc(q)+'</div><div class="msg ai" id="aiFloatBusy">Thinking with Gemini…</div>');
+  box.scrollTop=box.scrollHeight;input.value='';
+  const busy=$('aiFloatBusy');
+  try{await callMindAI(q,'',busy)}
+  catch(e){busy.innerHTML='<b>AI (local):</b> '+esc(localAIAnswer(q))+'<div class="webCite">Gemini/web search unavailable: '+esc(e.message||e)+'</div>'}
+  box.scrollTop=box.scrollHeight;
+}
 (function initFloatingAI(){
   const b=$('aiFloat');if(!b)return;
   let drag=false,moved=false,ox=0,oy=0;
@@ -767,6 +839,13 @@ async function askFloatingAI(){const input=$('aiFloatQuestion'),q=input.value.tr
   $('aiFloatClose')?.addEventListener('click',closeAIFloat);
   $('aiFloatAsk')?.addEventListener('click',askFloatingAI);
   $('aiFloatQuestion')?.addEventListener('keydown',e=>{if(e.key==='Enter')askFloatingAI()});
+  $('mindAiAnalyze')?.addEventListener('click',analyzeMindAI);
+  $('mindAiClear')?.addEventListener('click',()=>{
+    $('mindAiThoughts').value='';
+    $('aiFloatMessages').innerHTML='<div class="msg ai">Input clear ho gaya. Naya thought/idea enter karein.</div>';
+    $('aiFloatSources').innerHTML='';
+    $('mindAiStatus').textContent='Gemini 2.5 Flash • ready';
+  });
   const start=e=>{const t=e;drag=true;moved=false;const r=b.getBoundingClientRect();ox=t.clientX-r.left;oy=t.clientY-r.top;b.setPointerCapture?.(e.pointerId);};
   const move=e=>{if(!drag)return;const x=Math.max(4,Math.min(innerWidth-b.offsetWidth-4,e.clientX-ox)),y=Math.max(4,Math.min(innerHeight-b.offsetHeight-4,e.clientY-oy));b.style.left=x+'px';b.style.top=y+'px';b.style.right='auto';b.style.bottom='auto';moved=true;};
   const end=()=>{if(moved)b.dataset.dragged='1';drag=false};
