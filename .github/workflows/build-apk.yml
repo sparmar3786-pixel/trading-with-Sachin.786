@@ -56,6 +56,16 @@ jobs:
           import android.webkit.ValueCallback;
           import android.net.Uri;
           import android.content.Intent;
+          import android.database.Cursor;
+          import android.os.Build;
+          import android.os.Environment;
+          import android.provider.MediaStore;
+          import java.io.File;
+          import java.io.FileOutputStream;
+          import java.io.InputStream;
+          import java.text.SimpleDateFormat;
+          import java.util.Date;
+          import java.util.Locale;
 
           public class MainActivity extends Activity {
               private WebView web;
@@ -113,7 +123,58 @@ jobs:
                           else results = WebChromeClient.FileChooserParams.parseResult(resultCode, data);
                       }
                       filePathCallback.onReceiveValue(results);
+                      if (results != null && results.length > 0) saveSelectedFile(results[0]);
                       filePathCallback = null;
+                  }
+              }
+
+              private String selectedDisplayName(Uri uri) {
+                  Cursor c = null;
+                  try {
+                      c = getContentResolver().query(uri, new String[]{"_display_name"}, null, null, null);
+                      if (c != null && c.moveToFirst()) return c.getString(0);
+                  } catch (Exception ignored) {
+                  } finally {
+                      if (c != null) c.close();
+                  }
+                  return "option_chain.csv";
+              }
+
+              private void saveSelectedFile(Uri uri) {
+                  try {
+                      String original = selectedDisplayName(uri);
+                      String base = original.replaceAll("[^A-Za-z0-9._-]", "_");
+                      String stamp = new SimpleDateFormat("yyyy-MM-dd_HH-mm-ss", Locale.US).format(new Date());
+                      String fileName = stamp + "_" + base;
+                      String mime = getContentResolver().getType(uri);
+                      if (mime == null) mime = "application/octet-stream";
+
+                      if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                          android.content.ContentValues values = new android.content.ContentValues();
+                          values.put(MediaStore.Downloads.DISPLAY_NAME, fileName);
+                          values.put(MediaStore.Downloads.MIME_TYPE, mime);
+                          values.put(MediaStore.Downloads.RELATIVE_PATH, Environment.DIRECTORY_DOWNLOADS + "/NIFTY Option AI");
+                          Uri out = getContentResolver().insert(MediaStore.Downloads.EXTERNAL_CONTENT_URI, values);
+                          if (out == null) return;
+                          try (InputStream in = getContentResolver().openInputStream(uri);
+                               java.io.OutputStream os = getContentResolver().openOutputStream(out)) {
+                              byte[] buf = new byte[8192];
+                              int n;
+                              while (in != null && os != null && (n = in.read(buf)) > 0) os.write(buf, 0, n);
+                          }
+                      } else {
+                          File dir = new File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS), "NIFTY Option AI");
+                          if (!dir.exists()) dir.mkdirs();
+                          File out = new File(dir, fileName);
+                          try (InputStream in = getContentResolver().openInputStream(uri);
+                               FileOutputStream os = new FileOutputStream(out)) {
+                              byte[] buf = new byte[8192];
+                              int n;
+                              while (in != null && (n = in.read(buf)) > 0) os.write(buf, 0, n);
+                          }
+                      }
+                  } catch (Exception e) {
+                      android.util.Log.e("NIFTY_OPTION_AI", "File backup failed", e);
                   }
               }
 
