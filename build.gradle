@@ -1,13 +1,3 @@
-plugins { id 'com.android.application' }
-
-android {
-    namespace 'com.sachin.niftyoptionai'
-    compileSdk 35
-    defaultConfig {
-        applicationId 'com.sachin.niftyoptionai'
-        minSdk 23
-        targetSdk 35
-        versionCode 200
-        versionName '2.0.0'
-    }
+plugins {
+    id 'com.android.application' version '8.9.1' apply false
 }
