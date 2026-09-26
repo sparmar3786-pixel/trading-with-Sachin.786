@@ -50,6 +50,7 @@ jobs:
           import android.app.Activity;
           import android.os.Bundle;
           import android.webkit.WebChromeClient;
+          import android.webkit.CookieManager;
           import android.webkit.WebSettings;
           import android.webkit.WebView;
           import android.webkit.WebViewClient;
@@ -79,6 +80,12 @@ jobs:
                   WebSettings s = web.getSettings();
                   s.setJavaScriptEnabled(true);
                   s.setDomStorageEnabled(true);
+                  s.setCacheMode(WebSettings.LOAD_DEFAULT);
+                  s.setSupportMultipleWindows(false);
+                  CookieManager.getInstance().setAcceptCookie(true);
+                  if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
+                      CookieManager.getInstance().setAcceptThirdPartyCookies(web, true);
+                  }
                   s.setDatabaseEnabled(true);
                   s.setMediaPlaybackRequiresUserGesture(true);
                   s.setBuiltInZoomControls(false);
