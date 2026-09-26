@@ -24,7 +24,7 @@ jobs:
         run: |
           python3 -m pip install --upgrade pip
           python3 -m pip install -r requirements.txt
-          python3 -m py_compile server.py data_source.py groww.py dhan.py broker_secrets.py
+          python3 -m py_compile server.py data_source.py groww.py dhan.py broker_secrets.py failover.py
           python3 test_connectors.py
 
       - name: Setup Gradle
