@@ -1,8 +1,8 @@
 from __future__ import annotations
 import threading, time
 from typing import Any
-from .adapters.groww import GrowwAdapter
-from .adapters.dhan import DhanAdapter
+from .groww import GrowwAdapter
+from .dhan import DhanAdapter
 
 class OfficialDataSource:
     """Non-trading data source manager. Existing calculation engine remains untouched."""
