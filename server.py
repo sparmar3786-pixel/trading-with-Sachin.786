@@ -598,6 +598,35 @@ async def openai_ai_audit(payload: dict[str, Any]):
         raise HTTPException(status_code=502, detail=f'External AI request failed: {type(exc).__name__}: {exc}')
 
 
+@app.post('/ai/chat')
+async def ai_chat(payload: dict[str, Any]):
+    if not OPENAI_API_KEY:
+        raise HTTPException(status_code=503, detail='External AI is not configured on the server. Set OPENAI_API_KEY in the server secret store.')
+    question=str(payload.get('question') or '').strip()
+    if not question: raise HTTPException(status_code=400,detail='Question is required.')
+    context={'symbol':str(payload.get('symbol') or 'NIFTY'),'spot':parse_num(payload.get('spot')),'expiry':str(payload.get('expiry') or ''),'selectedStrike':parse_num(payload.get('selectedStrike')),'ce':payload.get('ce') or {},'pe':payload.get('pe') or {},'previous':payload.get('previous') or {},'fresh':bool(payload.get('fresh')),'source':str(payload.get('source') or 'option-chain'),'verified_intraday_bars':int(payload.get('bars') or 0)}
+    chain=payload.get('chain') or [];context['nearby_chain']=chain[:80] if isinstance(chain,list) else []
+    system_prompt=('You are the floating AI assistant inside NIFTY Option AI. Use selected-strike CE and PE data as primary market evidence. For current external information, news, rules, events, facts or anything outside supplied data, use web search before answering. Never invent market values. Clearly label observed data, calculated inference and web-sourced facts. Compare CE vs PE OI, delta OI, LTP, premium change, volume, IV, bid/ask and previous snapshot when present. If data is stale or missing, say so. Do not claim guaranteed profit or hidden buyer/seller identity. Answer quickly and directly in Hinglish when user writes Hinglish/Hindi. Include source links/citations when web search is used.')
+    body={'model':OPENAI_MODEL,'tools':[{'type':'web_search','search_context_size':'low'}],'input':[{'role':'system','content':[{'type':'input_text','text':system_prompt}]},{'role':'user','content':[{'type':'input_text','text':'User question: '+question+'\n\nSelected-strike context:\n'+json.dumps(context,separators=(',',':'),default=str)}]}],'max_output_tokens':1200}
+    try:
+        timeout=httpx.Timeout(float(OPENAI_TIMEOUT_SEC),connect=8.0)
+        async with httpx.AsyncClient(timeout=timeout) as client:
+            response=await client.post('https://api.openai.com/v1/responses',headers={'Authorization':f'Bearer {OPENAI_API_KEY}','Content-Type':'application/json'},json=body)
+        if response.status_code>=400: raise HTTPException(status_code=502,detail=f'External AI provider error ({response.status_code}): {response.text[:600]}')
+        data=response.json();answer=data.get('output_text') or ''
+        if not answer:
+            parts=[]
+            for item in data.get('output') or []:
+                for content in item.get('content') or []:
+                    if content.get('type')=='output_text' and content.get('text'): parts.append(content['text'])
+            answer='\n'.join(parts).strip()
+        if not answer: raise HTTPException(status_code=502,detail='External AI returned no text output.')
+        web_used=any(isinstance(item,dict) and item.get('type')=='web_search_call' for item in (data.get('output') or []))
+        return {'answer':answer,'webSearched':web_used,'model':OPENAI_MODEL,'timeIST':datetime.now(IST).isoformat()}
+    except HTTPException: raise
+    except Exception as exc: raise HTTPException(status_code=502,detail=f'External AI request failed: {type(exc).__name__}: {exc}')
+
+
 @app.post('/ai/audit')
 async def ai_audit(payload: dict[str, Any]):
     chain = payload.get('chain') or []
