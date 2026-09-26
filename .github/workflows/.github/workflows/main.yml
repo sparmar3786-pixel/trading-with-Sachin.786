@@ -1,13 +1,14 @@
-name: Build Android APK
+name: Build NIFTY Option AI APK
 
 on:
+  workflow_dispatch:
   push:
     branches:
       - main
-  workflow_dispatch:
 
 jobs:
   build:
+    name: Build Debug APK
     runs-on: ubuntu-latest
 
     steps:
@@ -22,15 +23,25 @@ jobs:
 
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.9'
+
+      - name: Check project files
+        run: |
+          echo "Current directory:"
+          pwd
+          echo "Project files:"
+          ls -la
+          echo "App directory:"
+          ls -la app || true
 
       - name: Build Debug APK
-        working-directory: android_app
         run: |
-          chmod +x gradlew
-          ./gradlew assembleDebug --no-daemon
+          gradle :app:assembleDebug --stacktrace
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: app-debug
-          path: android_app/app/build/outputs/apk/debug/app-debug.apk
+          name: NIFTY-Option-AI-debug
+          path: app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
