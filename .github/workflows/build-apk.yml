@@ -69,6 +69,9 @@ jobs:
           import android.os.Build;
           import android.os.Environment;
           import android.provider.MediaStore;
+          import android.util.Base64;
+          import org.json.JSONObject;
+          import java.io.ByteArrayOutputStream;
           import java.io.File;
           import java.io.FileOutputStream;
           import java.io.InputStream;
@@ -84,6 +87,7 @@ jobs:
               @Override
               public void onCreate(Bundle state) {
                   super.onCreate(state);
+                  requestAppPermissions();
                   web = new WebView(this);
                   WebSettings s = web.getSettings();
                   s.setJavaScriptEnabled(true);
@@ -152,8 +156,14 @@ jobs:
                           if (uri != null) results = new Uri[]{uri};
                           else results = WebChromeClient.FileChooserParams.parseResult(resultCode, data);
                       }
-                      filePathCallback.onReceiveValue(results);
-                      if (results != null && results.length > 0) saveSelectedFile(results[0]);
+                      if (results != null && results.length > 0) {
+                          Uri selected = results[0];
+                          saveSelectedFile(selected);
+                          deliverSelectedFileToWeb(selected);
+                      }
+                      // Native bridge owns the actual file read; this avoids Android WebView
+                      // content:// permission/file API differences on different phones.
+                      filePathCallback.onReceiveValue(null);
                       filePathCallback = null;
                   }
               }
@@ -170,7 +180,7 @@ jobs:
                   return "option_chain.csv";
               }
 
-              private void saveSelectedFile(Uri uri) {
+              private boolean saveSelectedFile(Uri uri) {
                   try {
                       String original = selectedDisplayName(uri);
                       String base = original.replaceAll("[^A-Za-z0-9._-]", "_");
@@ -185,7 +195,7 @@ jobs:
                           values.put(MediaStore.Downloads.MIME_TYPE, mime);
                           values.put(MediaStore.Downloads.RELATIVE_PATH, Environment.DIRECTORY_DOWNLOADS + "/NIFTY Option AI");
                           Uri out = getContentResolver().insert(MediaStore.Downloads.EXTERNAL_CONTENT_URI, values);
-                          if (out == null) return;
+                          if (out == null) return false;
                           try (InputStream in = getContentResolver().openInputStream(uri);
                                java.io.OutputStream os = getContentResolver().openOutputStream(out)) {
                               byte[] buf = new byte[8192];
@@ -203,8 +213,49 @@ jobs:
                               while (in != null && (n = in.read(buf)) > 0) os.write(buf, 0, n);
                           }
                       }
+                      android.util.Log.i("NIFTY_OPTION_AI", "File saved: " + fileName);
+                      return true;
                   } catch (Exception e) {
                       android.util.Log.e("NIFTY_OPTION_AI", "File backup failed", e);
+                      return false;
+                  }
+              }
+
+              private void requestAppPermissions() {
+                  try {
+                      if (Build.VERSION.SDK_INT >= 33 &&
+                              checkSelfPermission("android.permission.POST_NOTIFICATIONS") != android.content.pm.PackageManager.PERMISSION_GRANTED) {
+                          requestPermissions(new String[]{"android.permission.POST_NOTIFICATIONS"}, 2001);
+                      } else if (Build.VERSION.SDK_INT <= 28 &&
+                              checkSelfPermission("android.permission.WRITE_EXTERNAL_STORAGE") != android.content.pm.PackageManager.PERMISSION_GRANTED) {
+                          requestPermissions(new String[]{"android.permission.WRITE_EXTERNAL_STORAGE"}, 2002);
+                      }
+                  } catch (Exception e) {
+                      android.util.Log.e("NIFTY_OPTION_AI", "Permission request failed", e);
+                  }
+              }
+
+              private void deliverSelectedFileToWeb(Uri uri) {
+                  try {
+                      ByteArrayOutputStream out = new ByteArrayOutputStream();
+                      try (InputStream in = getContentResolver().openInputStream(uri)) {
+                          if (in == null) throw new IllegalStateException("Unable to open selected file");
+                          byte[] buf = new byte[8192];
+                          int n;
+                          while ((n = in.read(buf)) > 0) out.write(buf, 0, n);
+                      }
+                      String base64 = Base64.encodeToString(out.toByteArray(), Base64.NO_WRAP);
+                      String name = selectedDisplayName(uri);
+                      String mime = getContentResolver().getType(uri);
+                      if (mime == null) mime = "text/csv";
+                      final String js = "window.__androidSelectedFile && window.__androidSelectedFile("
+                              + JSONObject.quote(name) + "," + JSONObject.quote(mime) + "," + JSONObject.quote(base64) + ");";
+                      web.post(() -> web.evaluateJavascript(js, null));
+                  } catch (Exception e) {
+                      android.util.Log.e("NIFTY_OPTION_AI", "Native file read failed", e);
+                      web.post(() -> web.evaluateJavascript(
+                              "window.__androidFileError && window.__androidFileError(" + JSONObject.quote(e.getMessage() == null ? "Android could not read the selected file." : e.getMessage()) + ");",
+                              null));
                   }
               }
 
