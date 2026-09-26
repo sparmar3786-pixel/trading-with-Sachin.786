@@ -348,6 +348,9 @@ function renderSeller(e){
 function renderTransition(e){const near=e?.near||[];if(state.snapshots.length<2){$('transition').innerHTML='<div class="bigNote">Need at least 2 snapshots. Stage C requires premium ↑ + OI ↓ + volume expansion in the latest transition.</div>';return}const top=[];for(const side of ['ce','pe'])for(const r of near){const t=transitionEvidence(r,side,previousSnapshot(),near);if(t.stage!=='A')top.push({side,strike:r.strike,t})}top.sort((a,b)=>b.t.score-a.t.score);$('transition').innerHTML=top.slice(0,10).map(x=>`<div class="flag ${x.t.stage==='C'?'highlight':''}"><b>${x.side.toUpperCase()} ${fmt(x.strike)} • Stage ${x.t.stage} • ${x.t.score}/100</b><span class="muted">${x.t.reasons.join(' • ')||'No strong transition'}</span>${x.t.volPct!=null?`<br><span class="muted">Volume change ${x.t.volPct.toFixed(1)}%</span>`:''}</div>`).join('')||'<div class="bigNote">No transition evidence.</div>'}
 function previousRowForStrike(strike){const prev=previousSnapshot();return prev?.chain?.find(x=>x.strike===strike)||null}
 function pctChange(now,old){if(now==null||old==null||old===0)return null;return ((now-old)/Math.abs(old))*100}
+function signedFmt(v){if(v==null||v==='')return'—';const n=Number(v);if(!Number.isFinite(n))return String(v);return (n>0?'+':n<0?'-':'')+fmt(Math.abs(n))}
+function signedInt(v){if(v==null||v==='')return'—';const n=Number(v);if(!Number.isFinite(n))return String(v);return (n>0?'+':n<0?'-':'')+fmtInt(Math.abs(n))}
+function signedPct(v){if(v==null||v==='')return'—';const n=Number(v);if(!Number.isFinite(n))return String(v);return (n>0?'+':n<0?'-':'')+Math.abs(n).toFixed(1)+'%'}
 function strikeReading(side,x,prev){
   const q=prev?.[side]||null,p=x?.[side]||{};
   const premChg=pctChange(p.ltp,q?.ltp),oiChg=pctChange(p.oi,q?.oi),volChg=pctChange(p.vol,q?.vol);
@@ -374,19 +377,19 @@ function renderSelectedStrike(){
   if(badge){badge.className='dataBadge '+(state.live?'live':fr.ok?'live':'stale');badge.innerHTML='<span class="netPulse '+(state.live||fr.ok?'good':'bad')+'"></span>'+(state.live?'LIVE':fr.ok?'FRESH':'STALE / CSV')}
   const ce=strikeReading('ce',x,prev),pe=strikeReading('pe',x,prev);
   const setMetric=(id,val,cls)=>{const z=$(id);if(z){z.textContent=val;z.className=cls||'muted'}};
-  setMetric('selCeDoi',fmtInt(x.ce?.doi),'muted '+(x.ce?.doi>0?'metricGood':x.ce?.doi<0?'metricBad':''));
-  setMetric('selPeDoi',fmtInt(x.pe?.doi),'muted '+(x.pe?.doi>0?'metricGood':x.pe?.doi<0?'metricBad':''));
-  setMetric('selCePrem',fmt(x.ce?.ltp)+' • '+fmt(x.ce?.chg),'muted '+(x.ce?.chg>0?'metricGood':x.ce?.chg<0?'metricBad':''));
-  setMetric('selPePrem',fmt(x.pe?.ltp)+' • '+fmt(x.pe?.chg),'muted '+(x.pe?.chg>0?'metricGood':x.pe?.chg<0?'metricBad':''));
+  setMetric('selCeDoi',signedInt(x.ce?.doi),'muted '+(x.ce?.doi>0?'metricGood':x.ce?.doi<0?'metricBad':''));
+  setMetric('selPeDoi',signedInt(x.pe?.doi),'muted '+(x.pe?.doi>0?'metricGood':x.pe?.doi<0?'metricBad':''));
+  setMetric('selCePrem',fmt(x.ce?.ltp)+' • '+signedFmt(x.ce?.chg),'muted '+(x.ce?.chg>0?'metricGood':x.ce?.chg<0?'metricBad':''));
+  setMetric('selPePrem',fmt(x.pe?.ltp)+' • '+signedFmt(x.pe?.chg),'muted '+(x.pe?.chg>0?'metricGood':x.pe?.chg<0?'metricBad':''));
   const pct=(a,b)=>{const q=pctChange(a,b);return q==null?'—':q.toFixed(1)+'%'};
   const cell=(v,cl)=>'<td class="'+(cl||'')+'">'+(v==null?'—':v)+'</td>';
   const oiClass=v=>v>0?'metricGood':v<0?'metricBad':'';
   const premClass=v=>v>0?'metricGood':v<0?'metricBad':'';
   $('selectedStrikeTable').innerHTML=
     '<tr>'+cell(fmt(x.ce?.oi),'')+'<td>OPEN INTEREST</td><td rowspan="2">'+fmt(x.strike)+'</td><td>OPEN INTEREST</td>'+cell(fmt(x.pe?.oi),'')+'</tr>'+
-    '<tr>'+cell(fmtInt(x.ce?.doi),oiClass(x.ce?.doi))+'<td>Δ OI</td><td>Δ OI</td>'+cell(fmtInt(x.pe?.doi),oiClass(x.pe?.doi))+'</tr>'+
+    '<tr>'+cell(signedInt(x.ce?.doi),oiClass(x.ce?.doi))+'<td>Δ OI</td><td>Δ OI</td>'+cell(signedInt(x.pe?.doi),oiClass(x.pe?.doi))+'</tr>'+
     '<tr>'+cell(fmt(x.ce?.ltp),'')+'<td>LTP / PREMIUM</td><td rowspan="2">'+fmt(x.strike)+'</td><td>LTP / PREMIUM</td>'+cell(fmt(x.pe?.ltp),'')+'</tr>'+
-    '<tr>'+cell(fmt(x.ce?.chg),premClass(x.ce?.chg))+'<td>PREMIUM Δ</td><td>PREMIUM Δ</td>'+cell(fmt(x.pe?.chg),premClass(x.pe?.chg))+'</tr>'+
+    '<tr>'+cell(signedFmt(x.ce?.chg),premClass(x.ce?.chg))+'<td>PREMIUM Δ</td><td>PREMIUM Δ</td>'+cell(signedFmt(x.pe?.chg),premClass(x.pe?.chg))+'</tr>'+
     '<tr>'+cell(fmt(x.ce?.iv),'')+'<td>IV</td><td>'+fmt(x.strike)+'</td><td>IV</td>'+cell(fmt(x.pe?.iv),'')+'</tr>'+
     '<tr>'+cell(fmt(x.ce?.bid),'')+'<td>BID</td><td>'+fmt(x.strike)+'</td><td>ASK</td>'+cell(fmt(x.pe?.ask),'')+'</tr>'+
     '<tr>'+cell(fmt(x.ce?.ask),'')+'<td>ASK</td><td>'+fmt(x.strike)+'</td><td>BID</td>'+cell(fmt(x.pe?.bid),'')+'</tr>'+
