@@ -200,7 +200,12 @@ th:nth-child(2),th:nth-child(3),th:nth-child(4),th:nth-child(5){background:linea
 
   <div class="row">
     <div class="card wide">
-      <div class="notify"><div><div class="k">Broker Live Feed</div><div class="bigNote">Authenticated WebSocket • credentials stay in server memory • live ticks → persistent market memory</div></div><span id="brokerDot" class="pill warn">DISCONNECTED</span></div>
+      <div class="notify"><div><div class="k">Groww Live Feed</div><div class="bigNote">Official Groww API • open your Groww account/API page from the app, then connect with an official access token. Groww web password/OTP is never collected here.</div></div><span id="brokerDot" class="pill warn">DISCONNECTED</span></div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin:8px 0 2px">
+        <button id="openGrowwBtn" class="small" type="button">Open Groww Account / API</button>
+        <button id="openGrowwDocsBtn" class="small" type="button">Groww API Docs</button>
+        <span class="pill blue">LIVE DATA → AI → INDICATORS</span>
+      </div>
       <div class="four" style="margin-top:10px">
         <div><label class="label">Broker</label><select id="brokerProvider" class="input"><option value="GROWW">Groww — Official API</option><option value="DHAN">Dhan — Official API</option><option value="ZERODHA">Zerodha Kite Connect</option><option value="UPSTOX">Upstox</option></select></div>
         <div><label id="brokerKeyLabel" class="label">API Key / Client ID</label><input id="brokerApiKey" class="input" type="password" autocomplete="off" placeholder="Official API key / client ID"></div>
@@ -417,6 +422,9 @@ async function scanIndices(){
 }
 function notifyUser(msg){if('Notification' in window && Notification.permission==='granted') new Notification('NIFTY Option AI', {body:msg});}
 async function enableNotifications(){if(!('Notification' in window)){alert('Browser notifications are not supported.');return}const p=await Notification.requestPermission(); $('notifyBtn').textContent=p==='granted'?'Notifications ON':'Notifications blocked'; if(p==='granted')notifyUser('NIFTY Option AI alerts enabled.');}
+function openExternal(url){try{window.open(url,'_blank','noopener,noreferrer');}catch(_){location.href=url}}
+function openGrowwAccount(){openExternal('https://groww.in/trade-api')}
+function openGrowwDocs(){openExternal('https://groww.in/trade-api/docs/curl')}
 function alertSignalChange(){const e=setupEngine(); if(!e)return; const view=e.blocked?'BLOCKED':e.combined?'CE+PE EXPANSION':e.ceEligible?'CE BUY WATCH':e.peEligible?'PE BUY WATCH':'WAIT'; if(lastAIView && view!==lastAIView)notifyUser('Signal state changed: '+view); lastAIView=view}
 function renderAll(){renderTop();renderStrikeSelect();const e=setupEngine();renderAudit(e);renderOverride(e);renderBuyer(e);renderSeller(e);renderTransition(e);renderChain();renderStrikeMap(e);renderCombined(e);renderSnapshots();renderLog(e);updateLevelsTable()}
 function addSnapshot(chain,meta){state.chain=chain;state.spot=meta.spot??null;state.spotSource=meta.spot!=null?meta.spotSource||'source':'not available';state.expiry=meta.expiry||null;state.captureAt=meta.captureAt||null;state.captureSource=meta.captureSource||meta.source||'unknown';state.source=meta.source||'unknown';if(state.captureAt){const last=state.snapshots[state.snapshots.length-1];if(!last||new Date(state.captureAt).getTime()>new Date(last.captureAt).getTime())state.snapshots.push({captureAt:state.captureAt,spot:state.spot,chain:structuredClone(chain),source:state.source});state.snapshots=state.snapshots.slice(-24)}renderAll()}
@@ -449,11 +457,12 @@ async function loadReferences(){state.gateway=gatewayBase();state.appToken=$('ap
 async function updateLearning(){
   if(!state.chain.length) return;
   try{
-    const res=await apiFetch('/intelligence/evaluate',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({symbol:'NIFTY',chain:state.chain,spot:state.spot})});
+    const symbol=state.symbol||$('indexSelect')?.value||'NIFTY';
+    const res=await apiFetch('/intelligence/evaluate',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({symbol,chain:state.chain,spot:state.spot})});
     const j=await res.json(); state.learning=j;
     const reg=j.regime||{}; $('regimeBox').innerHTML=`<b>Market regime: ${esc(reg.regime||'UNKNOWN')}</b><span class="muted">score ${fmt(reg.score)} • CE cover ${fmtInt(reg.metrics?.ceCover)} • PE cover ${fmtInt(reg.metrics?.peCover)} • CE writing ${fmtInt(reg.metrics?.ceWrite)} • PE writing ${fmtInt(reg.metrics?.peWrite)}</span>`;
     const c=j.similarMemory?.ce||[], p=j.similarMemory?.pe||[]; $('similarBox').innerHTML=`<b>Similar transition memory</b><span class="muted">CE ${c.length} records • PE ${p.length} records. Historical similarity is evidence only, not a prediction.</span>`;
-    const [or,rr]=await Promise.all([apiFetch('/outcomes/stats?symbol=NIFTY',{cache:'no-store'}),apiFetch('/replay/run?symbol=NIFTY&limit=1000',{cache:'no-store'})]);
+    const [or,rr]=await Promise.all([apiFetch('/outcomes/stats?symbol='+encodeURIComponent(symbol),{cache:'no-store'}),apiFetch('/replay/run?symbol='+encodeURIComponent(symbol)+'&limit=1000',{cache:'no-store'})]);
     if(or.ok){const o=await or.json();$('outcomeBox').innerHTML=`<b>Signal outcome memory: ${fmtInt(o.total)}</b><span class="muted">${(o.byOutcome||[]).map(x=>`${esc(x.outcome)} ${x.n}`).join(' • ')||'No completed automatic/manual outcomes yet.'}</span>`}
     if(rr.ok){const r=await rr.json();$('replayBox').innerHTML=`<b>Historical Stage-C replay: ${fmtInt(r.totalEpisodes)} episodes</b><span class="muted">${Object.entries(r.outcomeCounts||{}).map(([k,v])=>`${esc(k)} ${v}`).join(' • ')||'No Stage-C episodes yet.'}</span>`}
     $('learningStatus').textContent='Continuous validation active: regime + similar transitions + automatic outcome tracking + historical replay.';
@@ -496,11 +505,15 @@ function curPnlFmt(x){if(x==null)return'—';const v=Number(x);return`<span clas
 async function pinDigest(pin){const enc=new TextEncoder();const data=enc.encode('NIFTY_OPTION_AI|'+pin);const hash=await crypto.subtle.digest('SHA-256',data);return [...new Uint8Array(hash)].map(b=>b.toString(16).padStart(2,'0')).join('')}
 async function initAppLock(){const gate=$('pinGate'),input=$('appPin'),btn=$('pinAction'),txt=$('pinGateText'),err=$('pinError');let stored=localStorage.getItem('noai_pin_hash');let fails=Number(localStorage.getItem('noai_pin_fails')||0);gate.style.display='flex';if(!stored){txt.textContent='Create your 4-digit app MPIN.';btn.textContent='Create MPIN';}else txt.textContent='Enter your 4-digit app MPIN.';btn.onclick=async()=>{const pin=input.value.trim();if(!/^\d{4}$/.test(pin)){err.textContent='Exactly 4 digits required.';return}if(!stored){localStorage.setItem('noai_pin_hash',await pinDigest(pin));localStorage.setItem('noai_pin_fails','0');stored=localStorage.getItem('noai_pin_hash');gate.style.display='none';return}const h=await pinDigest(pin);if(h===stored){localStorage.setItem('noai_pin_fails','0');gate.style.display='none';return}fails++;localStorage.setItem('noai_pin_fails',String(fails));err.textContent=`Wrong MPIN. Attempts: ${fails}/5`;if(fails>=5){btn.disabled=true;let n=30;const timer=setInterval(()=>{n--;err.textContent=`Locked for ${n}s`;if(n<=0){clearInterval(timer);fails=0;localStorage.setItem('noai_pin_fails','0');btn.disabled=false;err.textContent='';}},1000)}};input.addEventListener('keydown',e=>{if(e.key==='Enter')btn.click()})}
 
-window.addEventListener('load',()=>{initAppLock().catch(()=>{});loadReferences().catch(()=>{});scanIndices().catch(()=>{});loadOrderFlow().catch(()=>{});renderAll();updateLearning().catch(()=>{});setTimeout(resizeChart,250);updateHeaderClock();setInterval(updateHeaderClock,1000);setTimeout(checkGateway,700)});
+window.addEventListener('load',()=>{initAppLock().catch(()=>{});loadReferences().catch(()=>{});scanIndices().catch(()=>{});loadOrderFlow().catch(()=>{});renderAll();updateLearning().catch(()=>{});setTimeout(resizeChart,250);updateHeaderClock();setInterval(updateHeaderClock,1000);setTimeout(checkGateway,700);
+  $('openGrowwBtn')?.addEventListener('click',openGrowwAccount);
+  $('openGrowwDocsBtn')?.addEventListener('click',openGrowwDocs);
+  brokerFormLabels(); brokerStatus().catch(()=>{});
+});
 
 async function refreshJournalReplay(){
   try{
-    const [jr,rr]=await Promise.all([apiFetch('/journal/recent?symbol=NIFTY&limit=50',{cache:'no-store'}),apiFetch('/replay/run?symbol=NIFTY&limit=500',{cache:'no-store'})]);
+    const [jr,rr]=await Promise.all([apiFetch('/journal/recent?symbol='+encodeURIComponent(state.symbol||'NIFTY')+'&limit=50',{cache:'no-store'}),apiFetch('/replay/run?symbol='+encodeURIComponent(state.symbol||'NIFTY')+'&limit=500',{cache:'no-store'})]);
     if(jr.ok){const j=await jr.json();$('journal').innerHTML=(j.trades||[]).map(x=>`<tr><td>${esc(x.created_at||'—')}</td><td>${esc(x.side||'—')}</td><td>${fmt(x.strike)}</td><td>${fmt(x.entry)}</td><td>${fmt(x.exit_price)}</td><td>${fmt(x.stop_loss)}</td><td>${fmt(x.target1)}</td><td class="${String(x.outcome).includes('SL')?'bad':'good'}">${esc(x.outcome||'—')}</td></tr>`).join('')||'<tr><td colspan="8" class="muted">No completed trades yet.</td></tr>'}
     if(rr.ok){const r=await rr.json();$('replayDetail').innerHTML=`<b>${fmtInt(r.totalEpisodes||0)} Stage-C episodes</b><br><span class="muted">${Object.entries(r.outcomeCounts||{}).map(([k,v])=>`${esc(k)}: ${v}`).join(' • ')||'No replay episodes yet.'}</span>`; $('replayRows').innerHTML=(r.episodes||[]).slice(-8).reverse().map(x=>`<div class="flag"><b>${esc(x.side)} ${fmt(x.strike)} • ${esc(x.outcome)}</b><span class="muted">Stage ${esc(x.stage)} • next premium move ${fmt(x.nextMovePct)}% • ${esc(x.at||'')}</span></div>`).join('')||'No Stage-C episodes yet.'}
   }catch(e){console.warn('journal/replay',e)}
