@@ -78,6 +78,16 @@ hr{border:none;border-top:1px solid var(--line);margin:12px 0}
 #strikeHead div{font-size:10px;color:var(--muted);text-align:center;font-weight:700}
 input[type=checkbox]{width:22px;height:22px;min-height:22px}
 .inline{display:flex;align-items:center;gap:8px}
+
+.batchGrid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin-top:8px}
+.batchSlot{background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:9px}
+.batchSlot b{display:block;margin-bottom:5px}
+.batchSlot input[type=file]{width:100%;font-size:12px}
+.batchStatus{font-size:11px;color:var(--muted);margin-top:5px;min-height:16px}
+.webQuick{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+.webQuick button{min-height:42px}
+@media(max-width:700px){.batchGrid{grid-template-columns:1fr 1fr}.webQuick{grid-template-columns:1fr 1fr}}
+@media(max-width:430px){.batchGrid{grid-template-columns:1fr}}
 </style>
 </head>
 <body>
@@ -138,6 +148,39 @@ input[type=checkbox]{width:22px;height:22px;min-height:22px}
     <input id="csvFile" type="file" accept=".csv,text/csv">
     <button class="btn blue" id="btnParseCsv">📥 Parse &amp; preview</button>
     <div id="csvPreview"></div>
+  </div>
+
+  <div class="card" id="csvBatchCard">
+    <h2>3 · 15 CSV snapshots — automatic analysis</h2>
+    <div class="tiny">Har slot me alag time ka NSE option-chain CSV upload karo. Upload hote hi snapshot save hoga. 1 CSV bhi ho to usi data par single-snapshot analysis available hai; 2+ CSV par A → B delta engine use hoga.</div>
+    <div class="batchGrid" id="csvBatchGrid"></div>
+    <div class="row" style="margin-top:8px">
+      <button class="btn primary" id="btnAnalyzeBatch">▶️ Analyze uploaded data</button>
+      <button class="btn" id="btnClearBatch">Clear 15 CSV slots</button>
+    </div>
+    <div id="csvBatchStatus" class="tiny" style="margin-top:6px">0/15 CSV uploaded.</div>
+  </div>
+
+  <div class="card">
+    <h2>4 · Web / Broker access</h2>
+    <div class="tiny">Google search ya koi bhi website/broker link mobile browser me open karo. Broker APIs ke liye broker ka official login/API token required hota hai.</div>
+    <div class="row">
+      <div><label>Search Google</label><input id="webSearch" type="search" placeholder="NIFTY option chain, Groww, news…"></div>
+      <button class="btn blue" id="btnGoogleSearch" style="align-self:end">🔎 Google Search</button>
+    </div>
+    <div class="row">
+      <div><label>Any URL</label><input id="webUrl" type="url" placeholder="https://example.com"></div>
+      <button class="btn primary" id="btnOpenUrl" style="align-self:end">🌐 Open Link</button>
+    </div>
+    <div class="webQuick">
+      <button class="btn" data-web-url="https://groww.in/">Groww</button>
+      <button class="btn" data-web-url="https://dhan.co/">Dhan</button>
+      <button class="btn" data-web-url="https://zerodha.com/">Zerodha</button>
+      <button class="btn" data-web-url="https://upstox.com/">Upstox</button>
+      <button class="btn" data-web-url="https://www.angelone.in/">Angel One</button>
+      <button class="btn" data-web-url="https://www.google.com/">Google</button>
+    </div>
+    <div class="tiny" style="margin-top:8px">Live-data integration note: Groww and Dhan expose official option-chain APIs, while Upstox exposes option-chain APIs; these require the user's own authorized access token. cite-style-placeholder</div>
   </div>
 
   <div class="card">
@@ -1089,6 +1132,107 @@ function renderZipTree(){
   $('zipTree').innerHTML = files.map(f=>'• <code>'+esc(f.name)+'</code> <span class="muted">('+f.data.length+' B)</span>').join('<br>') + '<br><span class="muted">+ gradle/wrapper/gradle-wrapper.jar (generate locally)</span>';
 }
 document.addEventListener('DOMContentLoaded', init);
+
+// ===== Sp786 upgrades: 15 CSV slots + single-snapshot analysis + web access =====
+function sp786SingleSnapshotAnalysis(s){
+  const strikes=Array.isArray(s?.strikes)?s.strikes:[];
+  const spot=num(s?.spot);
+  if(!strikes.length) return '<div class="card"><div class="banner red">CSV me valid option-chain strikes nahi mile.</div></div>';
+  const atm=strikes.reduce((best,x)=>Math.abs(x.strike-spot)<Math.abs(best.strike-spot)?x:best,strikes[0]);
+  const ceOI=strikes.reduce((a,x)=>a+num(x.ce?.oi),0), peOI=strikes.reduce((a,x)=>a+num(x.pe?.oi),0);
+  const pcr=ceOI?peOI/ceOI:null;
+  const maxCE=strikes.reduce((a,x)=>num(x.ce?.oi)>num(a.ce?.oi)?x:a,strikes[0]);
+  const maxPE=strikes.reduce((a,x)=>num(x.pe?.oi)>num(a.pe?.oi)?x:a,strikes[0]);
+  return '<div class="card"><h2>Single Snapshot Analysis</h2>'+
+    '<div><span class="pill ok">DATA LOADED</span><span class="pill neu">'+esc(s.source||'csv')+'</span><span class="pill neu">'+strikes.length+' strikes</span></div>'+
+    '<div class="kv"><span>Snapshot time</span><b>'+esc(String(s.ts||'').replace('T',' '))+'</b></div>'+
+    '<div class="kv"><span>Spot</span><b>'+fmt(spot,2)+'</b></div>'+
+    '<div class="kv"><span>ATM strike</span><b>'+fmt(atm.strike,0)+'</b></div>'+
+    '<div class="kv"><span>Total CE OI</span><b>'+fmt(ceOI,0)+'</b></div>'+
+    '<div class="kv"><span>Total PE OI</span><b>'+fmt(peOI,0)+'</b></div>'+
+    '<div class="kv"><span>OI PCR (PE/CE)</span><b>'+fmt(pcr,2)+'</b></div>'+
+    '<div class="kv"><span>Highest CE OI</span><b>'+fmt(maxCE.strike,0)+' · '+fmt(maxCE.ce?.oi,0)+'</b></div>'+
+    '<div class="kv"><span>Highest PE OI</span><b>'+fmt(maxPE.strike,0)+' · '+fmt(maxPE.pe?.oi,0)+'</b></div>'+
+    '<div class="tiny" style="margin-top:8px">Single CSV me previous snapshot nahi hota, isliye delta/OI-change based directional rule ko force nahi kiya gaya. Upload a second time-stamped CSV for A → B change analysis.</div></div>';
+}
+function sp786SaveParsedCSV(res, fileName, slotNo){
+  if(!res || res.error || !res.strikes?.length) throw new Error(res?.error||'No valid option-chain rows');
+  const snap={id:uid(),ts:res.ts||isoLocal(new Date()),source:'csv-'+(slotNo||'batch'),fileName:fileName||'',spot:num(res.spot),iv:S.settings.iv,dte:3,expiry:'',bars:0,strikes:res.strikes};
+  S.snapshots.push(snap);
+  if(S.snapshots.length>15) S.snapshots=S.snapshots.slice(-15);
+  save(); renderSnaps(); fillSnapshotSelectors();
+  return snap;
+}
+function sp786SetBatchStatus(i,text,ok){
+  const el=$('csvBatchStatus'+i); if(el){el.textContent=text;el.style.color=ok?'var(--green)':'var(--red)';}
+  const all=[...document.querySelectorAll('.batchStatus')].filter(x=>x.textContent.includes('✓')).length;
+  const total=[...document.querySelectorAll('.batchStatus')].filter(x=>x.textContent.trim()).length;
+  if($('csvBatchStatus')) $('csvBatchStatus').textContent=(all||0)+'/15 CSV uploaded. Total saved snapshots: '+S.snapshots.length+'.';
+}
+function sp786BuildBatch(){
+  const g=$('csvBatchGrid'); if(!g)return;
+  g.innerHTML='';
+  for(let i=1;i<=15;i++){
+    const d=document.createElement('div'); d.className='batchSlot';
+    d.innerHTML='<b>'+i+'. Upload CSV</b><input id="csvBatch'+i+'" type="file" accept=".csv,text/csv"><div class="batchStatus" id="csvBatchStatus'+i+'">Not uploaded</div>';
+    g.appendChild(d);
+    const inp=d.querySelector('input');
+    inp.addEventListener('change',e=>{
+      const f=e.target.files?.[0]; if(!f)return;
+      const rr=new FileReader();
+      rr.onload=()=>{
+        try{
+          const res=parseCSV(String(rr.result||''));
+          const snap=sp786SaveParsedCSV(res,f.name,i);
+          sp786SetBatchStatus(i,'✓ '+f.name+' · '+snap.strikes.length+' strikes · '+String(snap.ts).replace('T',' '),true);
+          if(S.snapshots.length===1) $('analyzeOut').innerHTML=sp786SingleSnapshotAnalysis(snap);
+          if(S.snapshots.length>=2){ const n=S.snapshots.length; $('selA').value=String(n-2); $('selB').value=String(n-1); }
+          if($('csvBatchStatus')) $('csvBatchStatus').textContent=Math.min(15,S.snapshots.length)+'/15 CSV uploaded. Latest data auto-selected.';
+        }catch(err){sp786SetBatchStatus(i,'✕ '+(err.message||err),false);}
+      };
+      rr.readAsText(f);
+    });
+  }
+}
+function sp786AnalyzeUploaded(){
+  const n=S.snapshots.length;
+  if(!n){ $('analyzeOut').innerHTML='<div class="card"><div class="banner red">Pehle kam se kam 1 CSV upload karo.</div></div>'; return; }
+  if(n===1){ $('analyzeOut').innerHTML=sp786SingleSnapshotAnalysis(S.snapshots[0]); return; }
+  $('selA').value=String(Math.max(0,n-2)); $('selB').value=String(n-1);
+  document.querySelector('[data-page="analyze"]')?.click();
+  $('btnRun')?.click();
+}
+function sp786ClearBatch(){
+  if(!confirm('Saved CSV snapshots bhi clear karne hain?'))return;
+  S.snapshots=[]; save(); renderSnaps(); fillSnapshotSelectors();
+  document.querySelectorAll('.batchStatus').forEach(x=>{x.textContent='Not uploaded';x.style.color='var(--muted)'});
+  if($('csvBatchStatus'))$('csvBatchStatus').textContent='0/15 CSV uploaded.';
+}
+function sp786OpenExternal(url){
+  try{
+    if(window.AndroidBridge?.openExternal){window.AndroidBridge.openExternal(String(url));return}
+    window.open(String(url),'_blank');
+    setTimeout(()=>{try{location.href=String(url)}catch(_){ }},250);
+  }catch(_){try{location.href=String(url)}catch(__){}}
+}
+function sp786OpenGoogle(){
+  const q=($('webSearch')?.value||'').trim();
+  sp786OpenExternal(q?'https://www.google.com/search?q='+encodeURIComponent(q):'https://www.google.com/');
+}
+function sp786Init(){
+  sp786BuildBatch();
+  $('btnAnalyzeBatch')?.addEventListener('click',sp786AnalyzeUploaded);
+  $('btnClearBatch')?.addEventListener('click',sp786ClearBatch);
+  $('btnGoogleSearch')?.addEventListener('click',sp786OpenGoogle);
+  $('webSearch')?.addEventListener('keydown',e=>{if(e.key==='Enter')sp786OpenGoogle()});
+  $('btnOpenUrl')?.addEventListener('click',()=>{
+    let u=($('webUrl')?.value||'').trim(); if(!u)return;
+    if(!/^https?:\\/\\//i.test(u))u='https://'+u;
+    sp786OpenExternal(u);
+  });
+  document.querySelectorAll('[data-web-url]').forEach(b=>b.addEventListener('click',()=>sp786OpenExternal(b.dataset.webUrl)));
+}
+document.addEventListener('DOMContentLoaded',sp786Init);
 </script>
 
 <!-- ============ ANDROID PROJECT SOURCE (bundled into the ZIP) ============ -->
