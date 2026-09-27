@@ -5,7 +5,6 @@ pluginManagement {
         gradlePluginPortal()
     }
 }
-
 dependencyResolutionManagement {
     repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
     repositories {
@@ -13,6 +12,5 @@ dependencyResolutionManagement {
         mavenCentral()
     }
 }
-
-rootProject.name = "NIFTY-Option-AI"
-include(":app")
+rootProject.name = "Sp786-Option-Chain-Analyzer"
+include ':app'
