@@ -36,8 +36,9 @@ jobs:
           cp index.html app/src/main/assets/option-chain-analyzer.html
           test -s app/src/main/assets/option-chain-analyzer.html
 
-      - name: Verify project
+      - name: Verify project and analyzer core
         run: |
+          set -euo pipefail
           test -f settings.gradle
           test -f build.gradle
           test -f gradle.properties
@@ -45,15 +46,27 @@ jobs:
           test -f app/src/main/AndroidManifest.xml
           test -f app/src/main/java/com/sachin/sp786optionchain/MainActivity.kt
           test -s app/src/main/assets/option-chain-analyzer.html
-          echo "Sp786 project OK"
+          grep -q "function parseCSV" app/src/main/assets/option-chain-analyzer.html
+          grep -q "function runAnalysis" app/src/main/assets/option-chain-analyzer.html
+          grep -q "function classify" app/src/main/assets/option-chain-analyzer.html
+          echo "Sp786 project + analyzer core verified"
 
       - name: Build debug APK
         run: gradle :app:assembleDebug --no-daemon --stacktrace
 
-      - name: Verify and rename APK
+      - name: Verify APK
         run: |
-          test -f app/build/outputs/apk/debug/app-debug.apk
+          set -euo pipefail
+          APK="app/build/outputs/apk/debug/app-debug.apk"
+          test -s "$APK"
+          "$ANDROID_HOME/build-tools/34.0.0/aapt" dump badging "$APK" | grep -q "com.sachin.sp786optionchain"
+          sha256sum "$APK"
+
+      - name: Rename APK
+        run: |
+          set -euo pipefail
           cp app/build/outputs/apk/debug/app-debug.apk app/build/outputs/apk/debug/Sp786-Option-Chain-Analyzer.apk
+          test -s app/build/outputs/apk/debug/Sp786-Option-Chain-Analyzer.apk
           ls -lh app/build/outputs/apk/debug/Sp786-Option-Chain-Analyzer.apk
 
       - name: Upload APK
