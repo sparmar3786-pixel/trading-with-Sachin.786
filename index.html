@@ -917,48 +917,119 @@ function readStrikeRows(){
 
 /* ---------- CSV ---------- */
 function parseCSV(text){
-  const lines = text.replace(/\r/g,'').split('\n').filter(l=>l.trim()!=='');
-  if(lines.length<2) return { error:'CSV me header + data rows chahiye.' };
-  const split = l => { const out=[]; let cur='',q=false; for(let i=0;i<l.length;i++){ const c=l[i]; if(c==='"'){ q=!q; } else if((c===','||c==='\t'||c===';') && !q){ out.push(cur); cur=''; } else cur+=c; } out.push(cur); return out.map(s=>s.trim().replace(/^"|"$/g,'')); };
-  const head = split(lines[0]).map(h=>h.toLowerCase());
-  const nseHead = lines.length>1 ? split(lines[1]).map(h=>String(h).toLowerCase().replace(/[^a-z0-9]+/g,' ').trim()) : [];
-  const nseStrike = nseHead.findIndex(h=>h==='strike' || h.includes('strike price'));
-  if(nseStrike>=0 && nseHead.some(h=>h==='oi') && nseHead.some(h=>h.includes('chng in oi')) && nseHead.some(h=>h==='ltp')){
-    const strikes=[];
-    for(let r=2;r<lines.length;r++){
-      const c=split(lines[r]), s=num(c[nseStrike]);
-      if(!s) continue;
-      strikes.push({strike:s,
-        ce:{premium:num(c[nseStrike-6]),oi:num(c[nseStrike-10]),chgOi:num(c[nseStrike-9]),vol:num(c[nseStrike-8])},
-        pe:{premium:num(c[nseStrike+6]),oi:num(c[nseStrike+10]),chgOi:num(c[nseStrike+9]),vol:num(c[nseStrike+7])}
-      });
+  text=String(text||'').replace(/^\uFEFF/,'');
+  const rows=[]; let row=[],cell='',q=false;
+  for(let i=0;i<text.length;i++){
+    const ch=text[i], nx=text[i+1];
+    if(ch==='"' && q && nx==='"'){ cell+='"'; i++; continue; }
+    if(ch==='"'){ q=!q; continue; }
+    if((ch===','||ch==='\t'||ch===';') && !q){ row.push(cell.trim()); cell=''; continue; }
+    if((ch==='\n'||ch==='\r') && !q){
+      if(ch==='\r'&&nx==='\n') i++;
+      row.push(cell.trim()); cell='';
+      if(row.some(x=>x.trim()!=='')) rows.push(row);
+      row=[]; continue;
     }
-    return {strikes,spot:null,ts:null,
-      mapping:{strike:nseStrike,ceP:nseStrike-6,peP:nseStrike+6,ceOi:nseStrike-10,peOi:nseStrike+10,ceChg:nseStrike-9,peChg:nseStrike+9,ceVol:nseStrike-8,peVol:nseStrike+7,spot:-1,time:-1},
-      head:nseHead,format:'NSE_OPTION_CHAIN',instrument:'AUTO'};
+    cell+=ch;
   }
-  const find = (re)=>{ for(let i=0;i<head.length;i++){ if(re.test(head[i])) return i; } return -1; };
-  const iStrike = find(/strike|strike price/);
-  const iCeP = find(/call.*(ltp|last|prem)|ce.*(ltp|last|prem)|ce\s*price/);
-  const iPeP = find(/put.*(ltp|last|prem)|pe.*(ltp|last|prem)|pe\s*price/);
-  const iCeOi = find(/call.*\boi\b|ce.*\boi\b/);
-  const iPeOi = find(/put.*\boi\b|pe.*\boi\b/);
-  const iCeChg = find(/call.*(chg|change).*oi|ce.*(chg|change).*oi/);
-  const iPeChg = find(/put.*(chg|change).*oi|pe.*(chg|change).*oi/);
-  const iCeVol = find(/call.*vol|ce.*vol/);
-  const iPeVol = find(/put.*vol|pe.*vol/);
-  const iSpot = find(/spot|underlying|nifty\s*50|index/);
-  const iTime = find(/time|date|timestamp/);
-  if(iStrike<0) return { error:'Strike column nahi mila. Header me "Strike" keyword chahiye.' };
-  const strikes=[]; let spot=null, ts=null;
-  for(let r=1;r<lines.length;r++){
-    const c=split(lines[r]); const strike=num(c[iStrike]); if(!strike) continue;
-    strikes.push({ strike, ce:{premium:iCeP>=0?num(c[iCeP]):0, oi:iCeOi>=0?num(c[iCeOi]):0, chgOi:iCeChg>=0?num(c[iCeChg]):0, vol:iCeVol>=0?num(c[iCeVol]):0}, pe:{premium:iPeP>=0?num(c[iPeP]):0, oi:iPeOi>=0?num(c[iPeOi]):0, chgOi:iPeChg>=0?num(c[iPeChg]):0, vol:iPeVol>=0?num(c[iPeVol]):0} });
-    if(spot==null && iSpot>=0) spot=num(c[iSpot]);
-    if(ts==null && iTime>=0){ const d=parseTs(c[iTime]); if(d) ts=isoLocal(d); }
+  if(cell||row.length){ row.push(cell.trim()); rows.push(row); }
+  if(rows.length<2) return {error:'CSV me header/data rows nahi mile.'};
+
+  const norm=s=>String(s??'').trim().toLowerCase().replace(/[^a-z0-9]+/g,' ').trim();
+  const findHeaderIndex=()=>{
+    for(let i=0;i<Math.min(rows.length,8);i++){
+      if(rows[i].some(x=>/\bstrike(?:\s*price)?\b/i.test(String(x).trim()))) return i;
+    }
+    return -1;
+  };
+  const headerIndex=findHeaderIndex();
+
+  // NSE grouped option-chain format: detect the detailed STRIKE header row.
+  if(headerIndex>=0){
+    const header=rows[headerIndex].map(norm);
+    const strikeIdx=header.findIndex(x=>/^strike(?: price)?$/.test(x));
+    if(strikeIdx>=0){
+      const findCol=(start,end,patterns)=>{
+        for(let i=start;i<end;i++){ const h=header[i]; if(patterns.some(p=>p.test(h))) return i; }
+        return -1;
+      };
+      const ceStart=Math.max(0,strikeIdx-12), ceEnd=strikeIdx, peStart=strikeIdx+1, peEnd=header.length;
+      const ce={
+        oi:findCol(ceStart,ceEnd,[/^oi$/, /open interest/]),
+        doi:findCol(ceStart,ceEnd,[/chng.*oi/,/change.*oi/]),
+        vol:findCol(ceStart,ceEnd,[/^volume$/, /volume/]),
+        iv:findCol(ceStart,ceEnd,[/^iv$/, /implied volatility/]),
+        ltp:findCol(ceStart,ceEnd,[/^ltp$/, /last price/]),
+        bid:findCol(ceStart,ceEnd,[/bid price/,/^bid$/]),
+        ask:findCol(ceStart,ceEnd,[/ask price/,/^ask$/])
+      };
+      const pe={
+        bid:findCol(peStart,peEnd,[/bid price/,/^bid$/]),
+        ask:findCol(peStart,peEnd,[/ask price/,/^ask$/]),
+        ltp:findCol(peStart,peEnd,[/^ltp$/, /last price/]),
+        iv:findCol(peStart,peEnd,[/^iv$/, /implied volatility/]),
+        vol:findCol(peStart,peEnd,[/^volume$/, /volume/]),
+        doi:findCol(peStart,peEnd,[/chng.*oi/,/change.*oi/]),
+        oi:findCol(peStart,peEnd,[/^oi$/, /open interest/])
+      };
+      const fallback=(idx,off)=>idx+off>=0&&idx+off<header.length?idx+off:-1;
+      if(ce.oi<0)ce.oi=fallback(strikeIdx,-10);
+      if(ce.doi<0)ce.doi=fallback(strikeIdx,-9);
+      if(ce.vol<0)ce.vol=fallback(strikeIdx,-8);
+      if(ce.iv<0)ce.iv=fallback(strikeIdx,-7);
+      if(ce.ltp<0)ce.ltp=fallback(strikeIdx,-6);
+      if(ce.bid<0)ce.bid=fallback(strikeIdx,-3);
+      if(ce.ask<0)ce.ask=fallback(strikeIdx,-2);
+      if(pe.bid<0)pe.bid=fallback(strikeIdx,2);
+      if(pe.ask<0)pe.ask=fallback(strikeIdx,3);
+      if(pe.ltp<0)pe.ltp=fallback(strikeIdx,6);
+      if(pe.iv<0)pe.iv=fallback(strikeIdx,7);
+      if(pe.vol<0)pe.vol=fallback(strikeIdx,8);
+      if(pe.doi<0)pe.doi=fallback(strikeIdx,9);
+      if(pe.oi<0)pe.oi=fallback(strikeIdx,10);
+
+      const strikes=[];
+      for(let r=headerIndex+1;r<rows.length;r++){
+        const x=rows[r], strike=num(x[strikeIdx]);
+        if(!strike) continue;
+        const v=k=>k>=0?num(x[k]):0;
+        strikes.push({
+          strike,
+          ce:{premium:v(ce.ltp),oi:v(ce.oi),chgOi:v(ce.doi),vol:v(ce.vol),iv:v(ce.iv),bid:v(ce.bid),ask:v(ce.ask)},
+          pe:{premium:v(pe.ltp),oi:v(pe.oi),chgOi:v(pe.doi),vol:v(pe.vol),iv:v(pe.iv),bid:v(pe.bid),ask:v(pe.ask)}
+        });
+      }
+      if(strikes.length>=3) return {
+        strikes,spot:null,ts:null,
+        mapping:{strike:strikeIdx,ceP:ce.ltp,peP:pe.ltp,ceOi:ce.oi,peOi:pe.oi,ceChg:ce.doi,peChg:pe.doi,ceVol:ce.vol,peVol:pe.vol,spot:-1,time:-1},
+        head:header,format:'NSE_OPTION_CHAIN',instrument:'AUTO',headerIndex
+      };
+    }
   }
-  const mapping = { strike:iStrike, ceP:iCeP, peP:iPeP, ceOi:iCeOi, peOi:iPeOi, ceChg:iCeChg, peChg:iPeChg, ceVol:iCeVol, peVol:iPeVol, spot:iSpot, time:iTime };
-  return { strikes, spot, ts, mapping, head };
+
+  // Flat/CSV formats: find the row containing Strike and map CE/PE columns by keywords.
+  const flatHeaderIndex=headerIndex>=0?headerIndex:0;
+  const head=rows[flatHeaderIndex].map(norm);
+  const find=(re)=>{for(let i=0;i<head.length;i++)if(re.test(head[i]))return i;return -1};
+  const iStrike=find(/strike|strike price/);
+  const iCeP=find(/call.*(ltp|last|prem)|ce.*(ltp|last|prem)|ce\s*price/);
+  const iPeP=find(/put.*(ltp|last|prem)|pe.*(ltp|last|prem)|pe\s*price/);
+  const iCeOi=find(/call.*\boi\b|ce.*\boi\b/), iPeOi=find(/put.*\boi\b|pe.*\boi\b/);
+  const iCeChg=find(/call.*(chg|change).*oi|ce.*(chg|change).*oi/), iPeChg=find(/put.*(chg|change).*oi|pe.*(chg|change).*oi/);
+  const iCeVol=find(/call.*vol|ce.*vol/), iPeVol=find(/put.*vol|pe.*vol/);
+  const iSpot=find(/spot|underlying|nifty\s*50|index/), iTime=find(/time|date|timestamp/);
+  if(iStrike<0) return {error:'Strike column nahi mila. NSE CSV ka detailed header detect nahi hua.'};
+  const strikes=[]; let spot=null,ts=null;
+  for(let r=flatHeaderIndex+1;r<rows.length;r++){
+    const x=rows[r], strike=num(x[iStrike]); if(!strike) continue;
+    strikes.push({strike,
+      ce:{premium:iCeP>=0?num(x[iCeP]):0,oi:iCeOi>=0?num(x[iCeOi]):0,chgOi:iCeChg>=0?num(x[iCeChg]):0,vol:iCeVol>=0?num(x[iCeVol]):0},
+      pe:{premium:iPeP>=0?num(x[iPeP]):0,oi:iPeOi>=0?num(x[iPeOi]):0,chgOi:iPeChg>=0?num(x[iPeChg]):0,vol:iPeVol>=0?num(x[iPeVol]):0}
+    });
+    if(spot==null&&iSpot>=0)spot=num(x[iSpot]);
+    if(ts==null&&iTime>=0){const d=parseTs(x[iTime]);if(d)ts=isoLocal(d);}
+  }
+  return {strikes,spot,ts,mapping:{strike:iStrike,ceP:iCeP,peP:iPeP,ceOi:iCeOi,peOi:iPeOi,ceChg:iCeChg,peChg:iPeChg,ceVol:iCeVol,peVol:iPeVol,spot:iSpot,time:iTime},head,format:'FLAT_CSV',instrument:'AUTO'};
 }
 
 /* =====================================================================
