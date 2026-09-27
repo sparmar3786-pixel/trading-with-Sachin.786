@@ -5,6 +5,7 @@ import android.app.Activity
 import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
+import android.webkit.JavascriptInterface
 import android.webkit.ValueCallback
 import android.webkit.WebChromeClient
 import android.webkit.WebSettings
@@ -36,8 +37,9 @@ class MainActivity : AppCompatActivity() {
         s.cacheMode = WebSettings.LOAD_DEFAULT
         s.mediaPlaybackRequiresUserGesture = false
 
-        webView.webViewClient = WebViewClient()
+        webView.addJavascriptInterface(AndroidBridge(), "AndroidBridge")
 
+        webView.webViewClient = WebViewClient()
         webView.webChromeClient = object : WebChromeClient() {
             override fun onShowFileChooser(
                 view: WebView,
@@ -46,7 +48,6 @@ class MainActivity : AppCompatActivity() {
             ): Boolean {
                 filePathCallback?.onReceiveValue(null)
                 filePathCallback = callback
-
                 return try {
                     val intent = Intent(Intent.ACTION_OPEN_DOCUMENT).apply {
                         addCategory(Intent.CATEGORY_OPENABLE)
@@ -76,29 +77,36 @@ class MainActivity : AppCompatActivity() {
         })
     }
 
-    @Deprecated("Deprecated in Android API  Activity result flow retained for WebView compatibility.")
+    inner class AndroidBridge {
+        @JavascriptInterface
+        fun openExternal(url: String) {
+            try {
+                val intent = Intent(Intent.ACTION_VIEW, Uri.parse(url))
+                startActivity(intent)
+            } catch (_: Exception) {
+                runOnUiThread {
+                    webView.loadUrl(url)
+                }
+            }
+        }
+    }
+
+    @Deprecated("Deprecated API retained for WebView file chooser compatibility.")
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
         super.onActivityResult(requestCode, resultCode, data)
-
         if (requestCode != fileChooserRequest) return
-
         val callback = filePathCallback ?: return
         filePathCallback = null
-
         val results: Array<Uri>? =
             if (resultCode == Activity.RESULT_OK && data != null) {
                 val clip = data.clipData
                 when {
                     clip != null && clip.itemCount > 0 ->
                         Array(clip.itemCount) { i -> clip.getItemAt(i).uri }
-                    data.data != null ->
-                        arrayOf(data.data!!)
+                    data.data != null -> arrayOf(data.data!!)
                     else -> null
                 }
-            } else {
-                null
-            }
-
+            } else null
         callback.onReceiveValue(results)
     }
 
