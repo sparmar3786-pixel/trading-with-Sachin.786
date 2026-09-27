@@ -1051,6 +1051,11 @@ function init(){
   strikeRow({strike:23000}); strikeRow({strike:23100});
   $('inTime').value = nowLocalInput();
   fillSettings(); renderSnaps(); renderJournal(); renderRefs();
+  // YourMind Trade controls: UI bindings only; core signal formulas remain unchanged.
+  if($('ymSide')) $('ymSide').onchange = ()=>{ $('selSide').value=$('ymSide').value; };
+  if($('ymRR')) $('ymRR').onchange = ()=>{ S.settings.rrGate=num($('ymRR').value)||1.5; save(); };
+  if($('ymMinConf')) $('ymMinConf').oninput = ()=>{};
+  if($('ymSlValue')) $('ymSlValue').readOnly = true;
   $('exLot').value = S.settings.lotSize; $('plLot').value = S.settings.lotSize; $('rkLot').value = S.settings.lotSize;
   // tabs
   document.querySelectorAll('button.tab').forEach(b=> b.onclick = ()=>{
@@ -1096,6 +1101,7 @@ function init(){
     const a=+$('selA').value, b=+$('selB').value;
     if(isNaN(a)||isNaN(b)||a===b){ $('analyzeOut').innerHTML='<div class="card"><div class="banner red">A aur B alag choose karo.</div></div>'; return; }
     const pair = a<b ? S.snapshots.slice(a,b+1) : S.snapshots.slice(b,a+1);
+    if($('ymSide')) $('selSide').value=$('ymSide').value;
     const side=$('selSide').value;
     if(side==='BOTH'){
       const r1=runAnalysis(pair,'PE'); const r2=runAnalysis(pair,'CE');
