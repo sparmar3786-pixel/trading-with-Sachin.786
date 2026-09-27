@@ -856,6 +856,22 @@ function parseCSV(text){
   if(lines.length<2) return { error:'CSV me header + data rows chahiye.' };
   const split = l => { const out=[]; let cur='',q=false; for(let i=0;i<l.length;i++){ const c=l[i]; if(c==='"'){ q=!q; } else if((c===','||c==='\t'||c===';') && !q){ out.push(cur); cur=''; } else cur+=c; } out.push(cur); return out.map(s=>s.trim().replace(/^"|"$/g,'')); };
   const head = split(lines[0]).map(h=>h.toLowerCase());
+  const nseHead = lines.length>1 ? split(lines[1]).map(h=>String(h).toLowerCase().replace(/[^a-z0-9]+/g,' ').trim()) : [];
+  const nseStrike = nseHead.findIndex(h=>h==='strike' || h.includes('strike price'));
+  if(nseStrike>=0 && nseHead.some(h=>h==='oi') && nseHead.some(h=>h.includes('chng in oi')) && nseHead.some(h=>h==='ltp')){
+    const strikes=[];
+    for(let r=2;r<lines.length;r++){
+      const c=split(lines[r]), s=num(c[nseStrike]);
+      if(!s) continue;
+      strikes.push({strike:s,
+        ce:{premium:num(c[nseStrike-6]),oi:num(c[nseStrike-10]),chgOi:num(c[nseStrike-9]),vol:num(c[nseStrike-8])},
+        pe:{premium:num(c[nseStrike+6]),oi:num(c[nseStrike+10]),chgOi:num(c[nseStrike+9]),vol:num(c[nseStrike+7])}
+      });
+    }
+    return {strikes,spot:null,ts:null,
+      mapping:{strike:nseStrike,ceP:nseStrike-6,peP:nseStrike+6,ceOi:nseStrike-10,peOi:nseStrike+10,ceChg:nseStrike-9,peChg:nseStrike+9,ceVol:nseStrike-8,peVol:nseStrike+7,spot:-1,time:-1},
+      head:nseHead,format:'NSE_OPTION_CHAIN',instrument:'AUTO'};
+  }
   const find = (re)=>{ for(let i=0;i<head.length;i++){ if(re.test(head[i])) return i; } return -1; };
   const iStrike = find(/strike|strike price/);
   const iCeP = find(/call.*(ltp|last|prem)|ce.*(ltp|last|prem)|ce\s*price/);
