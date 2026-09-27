@@ -77,6 +77,15 @@ th{background:#10233a!important}td{padding:8px 7px}th{padding:9px 7px}
 .mindAiHead{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:8px}.mindAiTitle{font-size:15px;font-weight:950}.mindAiSub{font-size:10px;color:#9eb3ce;margin-top:2px}
 .mindAiGrid{display:grid;grid-template-columns:1.15fr .85fr;gap:9px}.mindAiInput{min-height:105px;resize:vertical;width:100%;box-sizing:border-box}.mindAiActions{display:flex;gap:7px;flex-wrap:wrap;margin-top:7px}.mindAiActions button{min-height:40px}.mindAiStatus{font-size:10px;color:#9eb3ce;margin-top:7px}.mindAiSources{margin-top:7px;display:flex;gap:5px;flex-wrap:wrap}.mindAiSources a{font-size:9px;color:#8fbaff;text-decoration:none;border:1px solid #29476b;border-radius:999px;padding:3px 7px;background:#0d1b2d}.mindAiSources a:hover{text-decoration:underline}
 @media(max-width:850px){.mindAiGrid{grid-template-columns:1fr}}
+
+/* Mobile Signal Desk integration */
+.msd{margin:0 0 14px;border:1px solid #28466a;border-radius:18px;background:linear-gradient(180deg,#0d1b2d,#091524);box-shadow:0 12px 30px rgba(0,0,0,.24);overflow:hidden}
+.msdHead{padding:13px 14px 8px;display:flex;align-items:center;justify-content:space-between;gap:8px}
+.msdBrand{display:flex;align-items:center;gap:9px}.msdLogo{width:34px;height:34px;border-radius:10px;display:grid;place-items:center;background:#071b2d;border:1px solid #2a527d;color:#e9f5ff;font-weight:900}.msdTitle{font-weight:850;font-size:15px}.msdSub{font-size:10px;color:#8297b2}
+.msdTabs{display:flex;gap:7px;overflow:auto;padding:5px 10px 10px;scrollbar-width:none}.msdTabs::-webkit-scrollbar{display:none}.msdTab{flex:0 0 auto;border:1px solid #21405f;background:#0c2035;color:#a9bed6;border-radius:999px;padding:8px 12px;font-weight:750;font-size:11px}.msdTab.active{background:#0c3b55;color:#eaffff;border-color:#1bd5dc;box-shadow:0 0 0 1px rgba(27,213,220,.16)}
+.msdPane{padding:0 12px 12px}.msdCard{border:1px solid #24415f;background:#0b192a;border-radius:14px;padding:12px;margin-top:9px}.msdCard h3{margin:0 0 3px;font-size:13px}.msdHint{font-size:10px;color:#7890ac;margin-bottom:10px}.msdGrid{display:grid;grid-template-columns:1fr 1fr;gap:8px}.msdGrid3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px}.msdField label{display:block;font-size:9px;color:#9db1c9;margin:0 0 4px}.msdInput{width:100%;min-height:38px;border:1px solid #254666;border-radius:9px;background:#0a1727;color:#edf6ff;padding:8px 10px;outline:none}.msdInput:focus{border-color:#24d9e1;box-shadow:0 0 0 2px rgba(36,217,225,.08)}
+.msdStrikeHead,.msdStrikeRow{display:grid;grid-template-columns:58px repeat(8,minmax(55px,1fr));gap:5px;align-items:center;min-width:560px}.msdTable{overflow:auto}.msdStrikeHead{color:#8fa6c0;font-size:9px;padding:0 4px 5px}.msdStrikeRow{margin:5px 0}.msdStrikeRow input{min-height:34px}.msdActions{display:flex;gap:7px;flex-wrap:wrap;margin-top:9px}.msdBtn{border:1px solid #2a4d70;background:#10263e;color:#e7f3ff;border-radius:9px;padding:9px 11px;font-weight:800;font-size:11px}.msdBtn.primary{background:linear-gradient(90deg,#12d8cf,#1597ff);color:#03131d;border:0}.msdBtn.danger{background:#40152c;border-color:#81264e;color:#ffb6c8}.msdStatus{font-size:10px;color:#91a7c1;margin-top:7px;min-height:15px}.msdCsv{min-height:108px;resize:vertical;font:10px ui-monospace,SFMono-Regular,Menlo,monospace}.msdEmpty{padding:10px;border:1px dashed #294561;border-radius:9px;color:#7f95ad;font-size:10px;text-align:center}.msdKpis{display:grid;grid-template-columns:repeat(3,1fr);gap:7px}.msdKpi{border:1px solid #203b57;background:#0a1726;border-radius:10px;padding:9px}.msdKpi b{display:block;font-size:13px}.msdKpi span{font-size:9px;color:#8298b2}.msdPane[hidden]{display:none}
+@media(max-width:620px){.msdGrid,.msdGrid3{grid-template-columns:1fr 1fr}.msdGrid3 .msdField:last-child{grid-column:1/-1}.msdHead{align-items:flex-start}.msdKpis{grid-template-columns:1fr 1fr}.msdKpis .msdKpi:last-child{grid-column:1/-1}}
 </style></head>
 <body>
 <div id="productionGate"><div class="gateItem"><span id="dataDot" class="dot"></span><b>DATA</b><span id="dataGate">WAIT</span></div><div class="gateItem"><span id="barsDot" class="dot"></span><b>BARS</b><span id="barsGate">WAIT</span></div><div class="gateItem"><span id="memoryDot" class="dot good"></span><b>MEMORY</b><span>ACTIVE</span></div><div class="gateItem"><span id="stateDot" class="dot warn"></span><b>SIGNAL</b><span id="signalGate" class="stateBox">WAIT</span></div><div class="gateItem"><b>1D/1W/1M</b><span>Reference levels</span></div></div>
@@ -90,6 +99,78 @@ th{background:#10233a!important}td{padding:8px 7px}th{padding:9px 7px}
     <div class="muted" style="font-size:11px;margin-top:8px">This is the app lock. Your broker password/OTP/MPIN is never stored by this page.</div>
   </div>
 </div>
+
+<!-- Screenshot-inspired Mobile Signal Desk -->
+<section class="msd" id="mobileSignalDesk">
+  <div class="msdHead">
+    <div class="msdBrand"><div class="msdLogo">NSE</div><div><div class="msdTitle">Option Chain Signal Analyzer — NIFTY</div><div class="msdSub">Rule-based • transparent • offline-friendly • existing engine preserved</div></div></div>
+    <span class="pill blue" id="msdClock">IST --:--:--</span>
+  </div>
+  <div class="msdTabs" id="msdTabs">
+    <button class="msdTab active" data-msd-tab="input">✎ Input</button>
+    <button class="msdTab" data-msd-tab="analyze">▥ Analyze</button>
+    <button class="msdTab" data-msd-tab="expiry">▣ Expiry</button>
+    <button class="msdTab" data-msd-tab="pnl">▤ P/L &amp; Charges</button>
+    <button class="msdTab" data-msd-tab="risk">◉ Risk</button>
+    <button class="msdTab" data-msd-tab="journal">▥ Journal</button>
+    <button class="msdTab" data-msd-tab="settings">⚙ Settings</button>
+    <button class="msdTab" data-msd-tab="analysis">⌕ Analysis</button>
+  </div>
+
+  <div class="msdPane" id="msdPane-input">
+    <div class="msdCard">
+      <h3>1 · Manual snapshot entry</h3>
+      <div class="msdHint">A = previous snapshot, B = new snapshot. Real market data only; manual values are user supplied.</div>
+      <div class="msdGrid">
+        <div class="msdField"><label>Spot (NIFTY)</label><input id="msdSpot" class="msdInput" type="number" step="0.05" placeholder="e.g. 23080"></div>
+        <div class="msdField"><label>ATM IV %</label><input id="msdIV" class="msdInput" type="number" step="0.01" placeholder="e.g. 13.5"></div>
+      </div>
+      <div class="msdGrid3" style="margin-top:8px">
+        <div class="msdField"><label>DTE (days)</label><input id="msdDte" class="msdInput" type="number" min="0" placeholder="e.g. 3"></div>
+        <div class="msdField"><label>Expiry date</label><input id="msdExpiry" class="msdInput" type="date"></div>
+        <div class="msdField"><label>Intraday bars</label><input id="msdBars" class="msdInput" type="number" min="0" value="0"></div>
+      </div>
+      <div class="msdField" style="margin-top:8px"><label>Data timestamp (snapshot time)</label><input id="msdTimestamp" class="msdInput" type="datetime-local"></div>
+    </div>
+
+    <div class="msdCard">
+      <h3>STRIKES <span class="msdHint">(CE = CALL, PE = PUT)</span></h3>
+      <div class="msdTable">
+        <div class="msdStrikeHead"><span>Strike</span><span>CE prem</span><span>CE OI</span><span>CE ΔOI</span><span>CE Vol</span><span>PE prem</span><span>PE OI</span><span>PE ΔOI</span><span>PE Vol</span></div>
+        <div id="msdStrikeRows"></div>
+      </div>
+      <div class="msdActions">
+        <button class="msdBtn" id="msdAddStrike">＋ Add strike</button>
+        <button class="msdBtn" id="msdAtmFive">◎ ATM ±5</button>
+        <button class="msdBtn danger" id="msdClear">♜ Clear</button>
+        <button class="msdBtn primary" id="msdSave">▣ Save snapshot</button>
+      </div>
+      <div class="msdStatus" id="msdInputStatus"></div>
+    </div>
+
+    <div class="msdCard">
+      <button class="msdBtn primary" id="msdCsvOpen">▰ CSV import (NSE option-chain export)</button>
+      <div class="msdHint" style="margin-top:7px">Existing CSV parser will be used; no separate calculation engine is created.</div>
+      <textarea id="msdCsv" class="msdInput msdCsv" placeholder="Strike,CE LTP,CE OI,CE Chg OI,CE Volume,PE LTP,PE OI,PE Chg OI,PE Volume"></textarea>
+      <div class="msdActions"><button class="msdBtn primary" id="msdCsvParse">▣ Parse &amp; preview</button><button class="msdBtn" id="msdFilePick">Choose file</button></div>
+    </div>
+
+    <div class="msdCard">
+      <h3>3 · Saved snapshots</h3>
+      <div id="msdSaved" class="msdEmpty">Koi snapshot nahi.</div>
+    </div>
+  </div>
+
+  <div class="msdPane" id="msdPane-analyze" hidden>
+    <div class="msdCard"><h3>Analyze</h3><div class="msdKpis"><div class="msdKpi"><b id="msdAnalyzeSpot">—</b><span>Spot</span></div><div class="msdKpi"><b id="msdAnalyzeStrike">—</b><span>Selected strike</span></div><div class="msdKpi"><b id="msdAnalyzeSource">—</b><span>Data source</span></div></div><div class="msdActions"><button class="msdBtn primary" id="msdGoExisting">Open full analyzer</button></div></div>
+  </div>
+  <div class="msdPane" id="msdPane-expiry" hidden><div class="msdCard"><h3>Expiry</h3><div class="msdHint">Expiry and DTE are linked to the snapshot fields above. Existing analyzer remains the calculation authority.</div><div id="msdExpiryInfo" class="msdKpis"></div></div></div>
+  <div class="msdPane" id="msdPane-pnl" hidden><div class="msdCard"><h3>P/L &amp; Charges</h3><div class="msdHint">Use the existing P/L calculator below; this tab is a shortcut into the current engine.</div><button class="msdBtn primary" id="msdGoPnl">Open P/L section</button></div></div>
+  <div class="msdPane" id="msdPane-risk" hidden><div class="msdCard"><h3>Risk</h3><div class="msdHint">No new trade formula is introduced here. Existing signal, stop-loss and target rules remain authoritative.</div><button class="msdBtn primary" id="msdGoRisk">Open risk controls</button></div></div>
+  <div class="msdPane" id="msdPane-journal" hidden><div class="msdCard"><h3>Journal</h3><div class="msdHint">Saved snapshots are local to this device. Existing journal/replay remains below.</div><div id="msdJournalList" class="msdEmpty">No local snapshots.</div></div></div>
+  <div class="msdPane" id="msdPane-settings" hidden><div class="msdCard"><h3>Settings</h3><div class="msdHint">UI-only integration. Broker/API credentials are not stored in this new panel.</div><button class="msdBtn primary" id="msdGoSettings">Open existing settings</button></div></div>
+  <div class="msdPane" id="msdPane-analysis" hidden><div class="msdCard"><h3>Analysis</h3><div class="msdHint">Existing CE/PE/OI analysis is preserved. Select a strike after loading real CSV/live data.</div><button class="msdBtn primary" id="msdGoAnalysis">Open full analysis</button></div></div>
+</section>
 <div class="wrap">
   <header class="top">
     <div class="brandWrap"><div class="brandMark">NSE</div><div class="brandText"><h1>NIFTY Option AI</h1><div class="sub">OI • ΔOI • Premium • Volume • CE/PE signal engine</div></div></div>
@@ -854,5 +935,76 @@ async function askFloatingAI(){
   b.addEventListener('pointerup',end);
   b.addEventListener('pointercancel',end);
 })();
+
+/* Mobile Signal Desk controller */
+(function(){
+  const $m=id=>document.getElementById(id);
+  const paneNames=['input','analyze','expiry','pnl','risk','journal','settings','analysis'];
+  let rows=[];
+  function nowLocal(){
+    const d=new Date(),p=n=>String(n).padStart(2,'0');
+    $m('msdTimestamp').value=d.getFullYear()+'-'+p(d.getMonth()+1)+'-'+p(d.getDate())+'T'+p(d.getHours())+':'+p(d.getMinutes());
+    $m('msdClock').textContent='IST '+new Intl.DateTimeFormat('en-IN',{timeZone:'Asia/Kolkata',hour:'2-digit',minute:'2-digit',second:'2-digit',hour12:false}).format(d);
+  }
+  function addRow(strike){
+    rows.push({strike:String(strike||''),ce:{ltp:'',oi:'',doi:'',vol:''},pe:{ltp:'',oi:'',doi:'',vol:''}});
+    renderRows();
+  }
+  function renderRows(){
+    $m('msdStrikeRows').innerHTML=rows.map((r,i)=>'<div class="msdStrikeRow" data-i="'+i+'"><input class="msdInput" data-k="strike" value="'+r.strike+'">'+['ce.ltp','ce.oi','ce.doi','ce.vol','pe.ltp','pe.oi','pe.doi','pe.vol'].map(k=>'<input class="msdInput" data-k="'+k+'" value="'+(k.split('.').reduce((a,x)=>a[x],r)||'')+'" type="number" step="any">').join('')+'</div>').join('')||'<div class="msdEmpty">Add strike to enter CE/PE snapshot values.</div>';
+    $m('msdStrikeRows').querySelectorAll('input').forEach(inp=>inp.addEventListener('input',e=>{const box=e.target.closest('[data-i]'),i=Number(box.dataset.i),k=e.target.dataset.k;if(k==='strike')rows[i].strike=e.target.value;else{const [a,b]=k.split('.');rows[i][a][b]=e.target.value}}));
+  }
+  function csvText(){
+    return 'Strike,CE LTP,CE OI,CE Chg OI,CE Volume,PE LTP,PE OI,PE Chg OI,PE Volume\n'+rows.map(r=>[r.strike,r.ce.ltp,r.ce.oi,r.ce.doi,r.ce.vol,r.pe.ltp,r.pe.oi,r.pe.doi,r.pe.vol].join(',')).join('\n');
+  }
+  async function parseCurrent(){
+    const text=($m('msdCsv').value.trim()||csvText()).trim();
+    if(!text){$m('msdInputStatus').textContent='CSV ya strike data enter karein.';return}
+    try{
+      const f=new File([text],'mobile-snapshot.csv',{type:'text/csv'});
+      if(typeof loadCSV==='function'){await loadCSV(f);if(typeof renderAll==='function')renderAll();$m('msdInputStatus').textContent='CSV parsed using existing analyzer engine.'}
+      else $m('msdInputStatus').textContent='Existing CSV parser not available.';
+    }catch(e){$m('msdInputStatus').textContent='CSV error: '+(e.message||e)}
+  }
+  function save(){
+    const item={savedAt:new Date().toISOString(),spot:$m('msdSpot').value,iv:$m('msdIV').value,dte:$m('msdDte').value,expiry:$m('msdExpiry').value,bars:$m('msdBars').value,timestamp:$m('msdTimestamp').value,rows:rows};
+    const all=JSON.parse(localStorage.getItem('msd_snapshots')||'[]');all.unshift(item);localStorage.setItem('msd_snapshots',JSON.stringify(all.slice(0,30)));renderSaved();$m('msdInputStatus').textContent='Snapshot saved locally on this device.';
+  }
+  function renderSaved(){
+    const all=JSON.parse(localStorage.getItem('msd_snapshots')||'[]');
+    const box=$m('msdSaved'); const journal=$m('msdJournalList');
+    if(!all.length){box.innerHTML='<div class="msdEmpty">Koi snapshot nahi.</div>';journal.innerHTML='<div class="msdEmpty">No local snapshots.</div>';return}
+    const html=all.slice(0,8).map((x,i)=>'<div class="msdCard" style="margin-top:6px"><b>'+(x.spot||'—')+' • '+(x.expiry||'No expiry')+'</b><div class="msdHint">'+new Date(x.savedAt).toLocaleString()+' • '+(x.rows||[]).length+' strikes</div><button class="msdBtn" data-load-snapshot="'+i+'">Load</button></div>').join('');
+    box.innerHTML=html;journal.innerHTML=html;
+    document.querySelectorAll('[data-load-snapshot]').forEach(b=>b.onclick=()=>loadSaved(Number(b.dataset.loadSnapshot)));
+  }
+  function loadSaved(i){
+    const all=JSON.parse(localStorage.getItem('msd_snapshots')||'[]'),x=all[i];if(!x)return;
+    $m('msdSpot').value=x.spot||'';$m('msdIV').value=x.iv||'';$m('msdDte').value=x.dte||'';$m('msdExpiry').value=x.expiry||'';$m('msdBars').value=x.bars||0;$m('msdTimestamp').value=x.timestamp||'';rows=x.rows||[];renderRows();$m('msdInputStatus').textContent='Snapshot loaded.';
+    document.querySelector('[data-msd-tab="input"]').click();
+  }
+  function gotoExisting(tab){
+    const candidates={analyze:'.card',pnl:'#payType',risk:'#riskModel',settings:'#gateway',analysis:'#chain'};
+    const el=document.querySelector(candidates[tab]||'.card');if(el)el.scrollIntoView({behavior:'smooth',block:'start'});
+  }
+  document.querySelectorAll('.msdTab').forEach(b=>b.addEventListener('click',()=>{
+    const name=b.dataset.msdTab;
+    document.querySelectorAll('.msdTab').forEach(x=>x.classList.toggle('active',x===b));
+    paneNames.forEach(n=>$m('msdPane-'+n).hidden=n!==name);
+    if(name==='analyze'){ $m('msdAnalyzeSpot').textContent=(typeof state!=='undefined'&&state.spot!=null)?fmt(state.spot):($m('msdSpot').value||'—');$m('msdAnalyzeStrike').textContent=(typeof state!=='undefined'&&state.selectedStrike!=null)?fmt(state.selectedStrike):'—';$m('msdAnalyzeSource').textContent=(typeof state!=='undefined'&&state.source)?state.source:'Manual';}
+    if(name==='expiry'){$m('msdExpiryInfo').innerHTML='<div class="msdKpi"><b>'+($m('msdExpiry').value||'—')+'</b><span>Expiry</span></div><div class="msdKpi"><b>'+($m('msdDte').value||'—')+'</b><span>DTE days</span></div><div class="msdKpi"><b>'+($m('msdBars').value||'0')+'</b><span>Intraday bars</span></div>'}
+    if(name==='journal')renderSaved();
+  }));
+  $m('msdAddStrike').onclick=()=>addRow('');
+  $m('msdAtmFive').onclick=()=>{const s=Number($m('msdSpot').value);if(!Number.isFinite(s)){$m('msdInputStatus').textContent='Pehle Spot enter karein.';return}rows=[];const atm=Math.round(s/50)*50;for(let k=-5;k<=5;k++)addRow(atm+k*50);};
+  $m('msdClear').onclick=()=>{rows=[];renderRows();$m('msdInputStatus').textContent='Strike fields cleared.'};
+  $m('msdSave').onclick=save;
+  $m('msdCsvParse').onclick=parseCurrent;
+  $m('msdCsvOpen').onclick=()=>document.querySelector('[data-msd-tab="input"]').click();
+  $m('msdFilePick').onclick=()=>document.getElementById('file')?.click();
+  $m('msdGoExisting').onclick=()=>gotoExisting('analyze');$m('msdGoPnl').onclick=()=>gotoExisting('pnl');$m('msdGoRisk').onclick=()=>gotoExisting('risk');$m('msdGoSettings').onclick=()=>gotoExisting('settings');$m('msdGoAnalysis').onclick=()=>gotoExisting('analysis');
+  renderRows();renderSaved();nowLocal();setInterval(nowLocal,1000);
+})();
+
 </script>
 </body></html>
