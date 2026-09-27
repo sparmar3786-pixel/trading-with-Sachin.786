@@ -41,9 +41,8 @@ jobs:
       - name: Prepare Android project files
         run: |
           mkdir -p app/src/main
-          test -f app/src/main/AndroidManifest.xml
           test -f index.html
-          echo "Using repository Android shell and frontend"
+          echo "Preparing Android shell and frontend"
 
       - name: Create missing Android source files
         run: |
