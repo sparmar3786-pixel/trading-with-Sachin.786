@@ -6,6 +6,7 @@ on:
     branches:
       - Sp786
       - Sp786-NSE-CSV-FIX
+      - yourmind-trade
 
 jobs:
   build:
