@@ -1,4 +1,4 @@
-name: Build Sp786 Option Chain Analyzer APK
+name: Build YourMind Trade APK
 
 on:
   workflow_dispatch:
@@ -66,12 +66,12 @@ jobs:
       - name: Rename APK
         run: |
           set -euo pipefail
-          cp app/build/outputs/apk/debug/app-debug.apk app/build/outputs/apk/debug/Sp786-Option-Chain-Analyzer.apk
+          cp app/build/outputs/apk/debug/app-debug.apk app/build/outputs/apk/debug/YourMind-Trade.apk
           test -s app/build/outputs/apk/debug/Sp786-Option-Chain-Analyzer.apk
           ls -lh app/build/outputs/apk/debug/Sp786-Option-Chain-Analyzer.apk
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: Sp786-Option-Chain-Analyzer-apk
+          name: YourMind-Trade-apk
           path: app/build/outputs/apk/debug/Sp786-Option-Chain-Analyzer.apk
