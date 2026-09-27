@@ -591,11 +591,13 @@ function sellerZone(prev, curr, dtab, side, spot){
 
   // trigger: current turn-up with OI falling + volume expanding near anchor
   let trig = null;
-  const cand = dtab.filter(d=> d.side===side && d.cls==='SHORT_COVERING' && (!zone || Math.abs(d.strike-anchorStrike)<=2*step));
+  // FINAL COMPILE: trigger requires premium↑ + OI↓ + volume expansion.
+  // This keeps Run93's short-covering engine but removes the weaker "no-volume" trigger path.
+  const cand = dtab.filter(d=> d.side===side && d.cls==='SHORT_COVERING' && d.volChg>0 && (!zone || Math.abs(d.strike-anchorStrike)<=2*step));
   if(cand.length){
     trig = cand.reduce((a,b)=> (b.volChg>a.volChg?b:a));
-    ev.push('Short-covering turn at '+trig.strike+' '+side+': prem '+fmt(trig.pPrem,2)+' → '+fmt(trig.cPrem,2)+' ('+pct(trig.pctPrem)+'), OI '+fmt(trig.pOi,0)+' → '+fmt(trig.cOi,0)+', vol '+fmt(trig.pVol,0)+' → '+fmt(trig.cVol,0)+'.');
-  } else ev.push('No short-covering turn detected near anchor on '+side+' side.');
+    ev.push('Short-covering turn at '+trig.strike+' '+side+': prem '+fmt(trig.pPrem,2)+' → '+fmt(trig.cPrem,2)+' ('+pct(trig.pctPrem)+'), OI '+fmt(trig.pOi,0)+' → '+fmt(trig.cOi,0)+', volume expanded '+fmt(trig.pVol,0)+' → '+fmt(trig.cVol,0)+'.');
+  } else ev.push('No confirmed short-covering turn near anchor on '+side+' side (premium↑ + OI↓ + volume↑ required).');
 
   // confirmation level: spot vs a key strike beyond the trigger
   let conf = null;
@@ -644,7 +646,9 @@ function transitionConfirm(snaps, side){
 function dataQuality(snap){
   const badges=[]; let cap=100;
   const bars = snap.bars==null?0:num(snap.bars);
-  if(bars<=0){ badges.push('NO-DATA (bars: 0)'); cap=Math.min(cap,S.settings.staleCap); }
+  // FINAL COMPILE: CSV-first snapshots are valid without a separate bar feed.
+  // Bars remain informative; freshness/timestamp and option rows are the primary gate.
+  if(bars<=0 && snap.source!=='csv'){ badges.push('NO-DATA (bars: 0)'); cap=Math.min(cap,S.settings.staleCap); }
   const age = ageMinutes(snap.ts);
   if(age!=null && age > S.settings.staleMin){ badges.push('STALE ('+ageText(age)+')'); cap=Math.min(cap,S.settings.staleCap); }
   const ms = marketStatus(snap.ts);
@@ -689,8 +693,11 @@ function conflictMatrix(ctx){
   if(ctx.override.status==='REVERSAL-WATCH'){ rows.push({p:2,rule:'Opposite-side override (partial)',result:'REVERSAL-WATCH',detail:ctx.override.evidence.join(' ')}); }
   if(ctx.thinCount>0 && ctx.side==='PE'){ rows.push({p:3,rule:'Liquidity filter',result:'DOWNGRADE (thin strikes)',detail:ctx.thinCount+' thin strike(s); short-covering from illiquid prints suppressed.'}); }
   if(!ctx.tconf.ok){ rows.push({p:4,rule:'Transition confirmation',result:'WAIT',detail:ctx.tconf.evidence}); return {verdict:'WAIT', rows, note:'Single snapshot cannot confirm.'}; }
-  if(!ctx.zone.trigger){ rows.push({p:5,rule:'No short-covering trigger',result:'NO-TRADE',detail:'No prem↑+OI↓+vol↑ turn detected on '+ctx.side+'.'}); return {verdict:'NO-TRADE', rows, note:'No trigger.'}; }
-  if(!ctx.risk.ok){ rows.push({p:6,rule:'Risk / R:R gate',result:'NO-TRADE',detail:ctx.risk.evidence}); return {verdict:'NO-TRADE', rows, note:'Gates failed.'}; }
+  if(!ctx.zone.trigger){ rows.push({p:5,rule:'No confirmed short-covering trigger',result:'NO-TRADE',detail:'Requires prem↑ + OI↓ + volume↑ near the OI anchor.'}); return {verdict:'NO-TRADE', rows, note:'No confirmed trigger.'}; }
+  // FINAL COMPILE: spot must also hold beyond the confirmation strike.
+  const confirmOk = ctx.zone.confirmLevel==null || (ctx.spot!=null && (ctx.side==='CE' ? ctx.spot>=ctx.zone.confirmLevel : ctx.spot<=ctx.zone.confirmLevel));
+  if(!confirmOk){ rows.push({p:6,rule:'Spot confirmation level',result:'WAIT',detail:'Spot has not held '+(ctx.side==='CE'?'above ':'below ')+ctx.zone.confirmLevel+'.'}); return {verdict:'WAIT', rows, note:'Trigger found but spot confirmation is not complete.'}; }
+  if(!ctx.risk.ok){ rows.push({p:7,rule:'Risk / R:R gate',result:'NO-TRADE',detail:ctx.risk.evidence}); return {verdict:'NO-TRADE', rows, note:'Gates failed.'}; }
   rows.push({p:7,rule:'Entry conditions met',result:'SIGNAL',detail:'Zone + trigger + confirmation + liquidity + R:R all pass.'});
   return { verdict: ctx.side==='CE'?'BUY CE':'BUY PE', rows, note:'Rule-based signal — trade with own discretion.' };
 }
@@ -817,7 +824,10 @@ function runAnalysis(snaps, side){
     risk = riskEngine(entry, sl, tp, S.settings.lotSize);
     risk.evidence = 'Trigger entry '+fmt(entry,2)+', SL '+fmt(sl,2)+' ('+(expiryMode?'15%':'25%')+'), TP '+fmt(tp,2)+'. '+risk.evidence;
   }
-  const ctx = { side, zone, override, tconf, thinCount, dq, risk, expiryMode };
+  const ctx = { side, zone, override, tconf, thinCount, dq, risk, expiryMode, spot };
+  // FINAL COMPILE: this engine is the locked combination:
+  // Run60 = CSV/NSE ingestion + data validation/reference context.
+  // Run93 = classification + covering/buildup engine + confirmation + override + confidence + risk.
   const conf = confidence(ctx);
   const cm = conflictMatrix(ctx);
   const audit = [
