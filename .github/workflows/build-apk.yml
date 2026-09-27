@@ -5,6 +5,7 @@ on:
   push:
     branches:
       - Sp786
+      - Sp786-NSE-CSV-FIX
 
 jobs:
   build:
