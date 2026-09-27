@@ -98,6 +98,53 @@ input[type=checkbox]{width:22px;height:22px;min-height:22px}
 #page-input>.card:first-of-type{order:3}
 #page-input>.card:nth-of-type(2){order:1}
 #page-input>.card:nth-of-type(3){order:2}
+
+/* ============================================================
+   YourMind Trade UI v2 — screenshot-inspired, responsive/mobile-first.
+   Visual structure only; trading engine is unchanged.
+   ============================================================ */
+:root{--ym-bg:#0b0f16;--ym-panel:#111824;--ym-panel2:#0d141e;--ym-line:#243044;--ym-text:#e7edf6;--ym-muted:#8d9ab0;--ym-blue:#2f8cff;--ym-cyan:#20d6c7;--ym-green:#27d17f;--ym-red:#ff5572;--ym-orange:#f6a623}
+body{background:var(--ym-bg)}
+header{background:linear-gradient(180deg,#0d121b,#0a0f16);border-bottom:1px solid #1e293b;padding:18px 16px 14px}
+header h1{font-size:clamp(20px,4vw,30px);letter-spacing:-.4px}
+header .sub{color:var(--ym-muted)}
+#tabs{position:sticky;top:0;z-index:20;background:rgba(9,14,21,.96);backdrop-filter:blur(10px);border-bottom:1px solid #1f2937;padding:7px 8px;overflow-x:auto;white-space:nowrap}
+#tabs .tab{border-radius:999px;padding:9px 14px;border:1px solid #263449;background:#101824;color:#aebbd0}
+#tabs .tab.active{background:linear-gradient(90deg,#20c9c0,#1f8cff);color:#071018;border-color:transparent;font-weight:900}
+.ym-dashboard{max-width:1180px;margin:12px auto 16px;padding:0 10px;gap:10px}
+.ym-data-card{background:linear-gradient(180deg,#121b27,#0e151f);border:1px solid #263449;border-radius:15px;padding:12px}
+.ym-data-head{display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:9px}
+.ym-data-head b{font-size:14px}.ym-pill{border:1px solid #334155;border-radius:999px;padding:4px 8px;font-size:10px;color:#9fb0c8}
+.ym-drop{border:1px dashed #33445d;border-radius:11px;background:#0c131d;padding:12px;text-align:center;color:#9ba9bd}
+.ym-drop strong{color:#dce7f5}
+.ym-grid3{grid-template-columns:1.05fr 1fr 1fr}
+.ym-box{background:linear-gradient(180deg,#121a26,#0f1722);border:1px solid #263449;box-shadow:0 8px 24px rgba(0,0,0,.12)}
+.ym-title{color:#9ba9bd}
+.ym-stat{background:#0d141e;border-color:#27364c}
+.ym-stat b{font-variant-numeric:tabular-nums}
+.ym-status-live{border-color:#1d7650!important;color:#55e09b!important}
+#ymDataMount .card{margin:0;background:transparent;border:0;box-shadow:none;padding:0}
+#ymDataMount .card h2{display:none}
+#ymDataMount .tiny{margin-bottom:8px}
+#ymDataMount #csvText{min-height:78px}
+#ymDataMount #csvPreview{max-height:330px;overflow:auto}
+#page-input{max-width:1180px;margin:auto}
+#page-input>.card{border-color:#263449;background:#111824}
+#page-input>.card:nth-child(1){order:3}
+#page-input>.card:nth-child(2){order:1}
+#page-input>.card:nth-child(3){order:2}
+#page-input .card h2{letter-spacing:-.2px}
+#page-analyze,#page-expiry,#page-pl,#page-risk,#page-journal,#page-refs,#page-settings,#page-help,#page-android{max-width:1180px;margin:auto}
+@media(max-width:760px){
+  header{padding:15px 12px 12px}
+  header h1{font-size:21px}
+  #tabs .tab{padding:8px 12px;font-size:12px}
+  .ym-grid3{grid-template-columns:1fr}
+  .ym-summary{grid-template-columns:1fr 1fr}
+  .ym-data-head{align-items:flex-start}
+  .ym-dashboard{padding:0 7px}
+  .card{border-radius:13px}
+}
 </style>
 </head>
 <body>
@@ -120,6 +167,14 @@ input[type=checkbox]{width:22px;height:22px;min-height:22px}
 <main>
 <!-- ============ YOURMIND TRADE DASHBOARD ============ -->
 <div class="ym-dashboard">
+<div class="ym-data-card">
+  <div class="ym-data-head">
+    <b>DATA SOURCES · NSE option-chain</b>
+    <span class="ym-pill">CSV / TXT / pasted table</span>
+  </div>
+  <div class="ym-drop">📂 <strong>Upload option-chain file</strong> or paste raw NSE table below<br><span class="ym-note">Auto-detect instrument + grouped NSE headers. No fabricated market data.</span></div>
+  <div id="ymDataMount"></div>
+</div>
   <div class="ym-grid3">
     <div class="ym-box">
       <div class="ym-title">Filters · Indices</div>
@@ -1123,6 +1178,10 @@ function init(){
   $('inTime').value = nowLocalInput();
   fillSettings(); renderSnaps(); renderJournal(); renderRefs();
   // YourMind Trade controls: UI bindings only; core signal formulas remain unchanged.
+  // YourMind Trade layout: move the existing real CSV controls into the screenshot-style data-source card.
+  const ymCsvCard=document.querySelector('#page-input > .card:nth-child(2)');
+  const ymMount=$('ymDataMount');
+  if(ymCsvCard && ymMount && !ymMount.contains(ymCsvCard)) ymMount.appendChild(ymCsvCard);
   if($('ymSide')) $('ymSide').onchange = ()=>{ $('selSide').value=$('ymSide').value; };
   if($('ymRR')) $('ymRR').onchange = ()=>{ S.settings.rrGate=num($('ymRR').value)||1.5; save(); };
   if($('ymMinConf')) $('ymMinConf').oninput = ()=>{};
