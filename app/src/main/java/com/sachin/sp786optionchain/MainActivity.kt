@@ -1,23 +1,46 @@
 package com.sachin.sp786optionchain
 
 import android.annotation.SuppressLint
-import android.app.Activity
 import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
 import android.webkit.JavascriptInterface
 import android.webkit.ValueCallback
 import android.webkit.WebChromeClient
+import android.webkit.WebResourceRequest
 import android.webkit.WebSettings
 import android.webkit.WebView
 import android.webkit.WebViewClient
 import androidx.activity.OnBackPressedCallback
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
 
 class MainActivity : AppCompatActivity() {
+
     private lateinit var webView: WebView
     private var filePathCallback: ValueCallback<Array<Uri>>? = null
-    private val fileChooserRequest = 1001
+
+    private val fileChooserLauncher =
+        registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
+            val callback = filePathCallback ?: return@registerForActivityResult
+            filePathCallback = null
+
+            val results = if (result.resultCode == RESULT_OK) {
+                val data = result.data
+                val clip = data?.clipData
+                when {
+                    clip != null && clip.itemCount > 0 ->
+                        Array(clip.itemCount) { index -> clip.getItemAt(index).uri }
+                    data?.data != null ->
+                        arrayOf(data.data!!)
+                    else -> null
+                }
+            } else {
+                null
+            }
+
+            callback.onReceiveValue(results)
+        }
 
     @SuppressLint("SetJavaScriptEnabled")
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -25,21 +48,56 @@ class MainActivity : AppCompatActivity() {
 
         webView = WebView(this)
         setContentView(webView)
-
-        val s: WebSettings = webView.settings
-        s.javaScriptEnabled = true
-        s.domStorageEnabled = true
-        s.databaseEnabled = true
-        s.allowFileAccess = true
-        s.allowContentAccess = true
-        s.allowFileAccessFromFileURLs = true
-        s.allowUniversalAccessFromFileURLs = true
-        s.cacheMode = WebSettings.LOAD_DEFAULT
-        s.mediaPlaybackRequiresUserGesture = false
+        configureWebView()
 
         webView.addJavascriptInterface(AndroidBridge(), "AndroidBridge")
 
-        webView.webViewClient = WebViewClient()
+        if (savedInstanceState == null) {
+            webView.loadUrl(ASSET_URL)
+        } else {
+            webView.restoreState(savedInstanceState)
+        }
+
+        onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
+            override fun handleOnBackPressed() {
+                if (webView.canGoBack()) {
+                    webView.goBack()
+                } else {
+                    isEnabled = false
+                    onBackPressedDispatcher.onBackPressed()
+                }
+            }
+        })
+    }
+
+    @SuppressLint("SetJavaScriptEnabled")
+    private fun configureWebView() {
+        webView.settings.apply {
+            javaScriptEnabled = true
+            domStorageEnabled = true
+            databaseEnabled = true
+            allowFileAccess = true
+            allowContentAccess = true
+            cacheMode = WebSettings.LOAD_DEFAULT
+            mediaPlaybackRequiresUserGesture = false
+            builtInZoomControls = false
+            displayZoomControls = false
+        }
+
+        webView.webViewClient = object : WebViewClient() {
+            override fun shouldOverrideUrlLoading(
+                view: WebView,
+                request: WebResourceRequest
+            ): Boolean {
+                return handleExternalUrl(request.url)
+            }
+
+            @Deprecated("Compatibility callback for older Android WebView.")
+            override fun shouldOverrideUrlLoading(view: WebView, url: String): Boolean {
+                return handleExternalUrl(Uri.parse(url))
+            }
+        }
+
         webView.webChromeClient = object : WebChromeClient() {
             override fun onShowFileChooser(
                 view: WebView,
@@ -48,72 +106,76 @@ class MainActivity : AppCompatActivity() {
             ): Boolean {
                 filePathCallback?.onReceiveValue(null)
                 filePathCallback = callback
+
                 return try {
                     val intent = Intent(Intent.ACTION_OPEN_DOCUMENT).apply {
                         addCategory(Intent.CATEGORY_OPENABLE)
                         type = "*/*"
                         putExtra(Intent.EXTRA_ALLOW_MULTIPLE, false)
                     }
-                    startActivityForResult(intent, fileChooserRequest)
+                    fileChooserLauncher.launch(intent)
                     true
-                } catch (e: Exception) {
+                } catch (_: Exception) {
                     filePathCallback = null
                     callback.onReceiveValue(null)
                     false
                 }
             }
         }
+    }
 
-        webView.loadUrl("file:///android_asset/option-chain-analyzer.html")
+    private fun handleExternalUrl(uri: Uri): Boolean {
+        val scheme = uri.scheme?.lowercase() ?: return true
 
-        onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
-            override fun handleOnBackPressed() {
-                if (webView.canGoBack()) webView.goBack()
-                else {
-                    isEnabled = false
-                    onBackPressedDispatcher.onBackPressed()
-                }
+        if (scheme != "http" && scheme != "https") {
+            return try {
+                startActivity(Intent(Intent.ACTION_VIEW, uri))
+                true
+            } catch (_: Exception) {
+                false
             }
-        })
+        }
+
+        return try {
+            startActivity(Intent(Intent.ACTION_VIEW, uri))
+            true
+        } catch (_: Exception) {
+            false
+        }
     }
 
     inner class AndroidBridge {
         @JavascriptInterface
         fun openExternal(url: String) {
-            try {
-                val intent = Intent(Intent.ACTION_VIEW, Uri.parse(url))
-                startActivity(intent)
-            } catch (_: Exception) {
-                runOnUiThread {
-                    webView.loadUrl(url)
+            val uri = runCatching { Uri.parse(url) }.getOrNull() ?: return
+            runOnUiThread {
+                if (!handleExternalUrl(uri)) {
+                    webView.loadUrl(uri.toString())
                 }
             }
         }
     }
 
-    @Deprecated("Deprecated API retained for WebView file chooser compatibility.")
-    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
-        super.onActivityResult(requestCode, resultCode, data)
-        if (requestCode != fileChooserRequest) return
-        val callback = filePathCallback ?: return
-        filePathCallback = null
-        val results: Array<Uri>? =
-            if (resultCode == Activity.RESULT_OK && data != null) {
-                val clip = data.clipData
-                when {
-                    clip != null && clip.itemCount > 0 ->
-                        Array(clip.itemCount) { i -> clip.getItemAt(i).uri }
-                    data.data != null -> arrayOf(data.data!!)
-                    else -> null
-                }
-            } else null
-        callback.onReceiveValue(results)
+    override fun onSaveInstanceState(outState: Bundle) {
+        webView.saveState(outState)
+        super.onSaveInstanceState(outState)
     }
 
     override fun onDestroy() {
         filePathCallback?.onReceiveValue(null)
         filePathCallback = null
-        webView.destroy()
+
+        webView.apply {
+            stopLoading()
+            loadUrl("about:blank")
+            removeAllViews()
+            destroy()
+        }
+
         super.onDestroy()
+    }
+
+    companion object {
+        private const val ASSET_URL = "file:///android_asset/option-chain-analyzer.html"
     }
 }
