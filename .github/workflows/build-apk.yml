@@ -51,7 +51,10 @@ jobs:
           grep -q "function parseCSV" app/src/main/assets/option-chain-analyzer.html
           grep -q "function runAnalysis" app/src/main/assets/option-chain-analyzer.html
           grep -q "function classify" app/src/main/assets/option-chain-analyzer.html
-          echo "Sp786 project + analyzer core verified"
+          grep -q "function sellerZone" app/src/main/assets/option-chain-analyzer.html
+          grep -q "function oppositeOverride" app/src/main/assets/option-chain-analyzer.html
+          grep -q "function riskEngine" app/src/main/assets/option-chain-analyzer.html
+          echo "YourMind Trade + compiled Run60 ingestion + Run93 signal engine verified"
 
       - name: Build debug APK
         run: gradle :app:assembleDebug --no-daemon --stacktrace
@@ -68,11 +71,11 @@ jobs:
         run: |
           set -euo pipefail
           cp app/build/outputs/apk/debug/app-debug.apk app/build/outputs/apk/debug/YourMind-Trade.apk
-          test -s app/build/outputs/apk/debug/Sp786-Option-Chain-Analyzer.apk
-          ls -lh app/build/outputs/apk/debug/Sp786-Option-Chain-Analyzer.apk
+          test -s app/build/outputs/apk/debug/YourMind-Trade.apk
+          ls -lh app/build/outputs/apk/debug/YourMind-Trade.apk
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
           name: YourMind-Trade-apk
-          path: app/build/outputs/apk/debug/Sp786-Option-Chain-Analyzer.apk
+          path: app/build/outputs/apk/debug/YourMind-Trade.apk
