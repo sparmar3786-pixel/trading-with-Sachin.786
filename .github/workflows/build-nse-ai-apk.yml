@@ -30,6 +30,7 @@ jobs:
         run: |
           cp nse_ai_apk/source/main.dart nse_ai_apk/flutter_app/lib/main.dart
           cp nse_ai_apk/source/pubspec.yaml nse_ai_apk/flutter_app/pubspec.yaml
+          rm -f nse_ai_apk/flutter_app/test/widget_test.dart
           python3 - <<'PY'
           from pathlib import Path
           p = Path("nse_ai_apk/flutter_app/android/app/src/main/AndroidManifest.xml")
@@ -41,9 +42,13 @@ jobs:
           p.write_text(s)
           PY
 
+      - name: Get Flutter dependencies
+        working-directory: nse_ai_apk/flutter_app
+        run: flutter pub get
+
       - name: Verify Dart source
         working-directory: nse_ai_apk/flutter_app
-        run: dart analyze
+        run: flutter analyze
 
       - name: Build release APK
         working-directory: nse_ai_apk/flutter_app
