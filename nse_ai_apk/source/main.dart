@@ -148,15 +148,15 @@ class _TerminalState extends State<Terminal> {
   @override
   Widget build(BuildContext context) {
     final d = data ?? <String, dynamic>{};
-    final action = (d?['action'] ?? 'WAIT').toString();
-    final nseValue = d?['nse'];
+    final action = (d['action'] ?? 'WAIT').toString();
+    final nseValue = d['nse'];
     final nse = nseValue is Map
         ? Map<String, dynamic>.from(nseValue)
         : null;
 
     return Scaffold(
       appBar: AppBar(
-        title: Text((d?['symbol'] ?? 'NSE AI OI').toString()),
+        title: Text((d['symbol'] ?? 'NSE AI OI').toString()),
         actions: [
           IconButton(
             onPressed: settings,
@@ -172,7 +172,7 @@ class _TerminalState extends State<Terminal> {
               'Connection: $error',
               style: const TextStyle(color: Colors.redAccent),
             ),
-          if (d?['market_open'] == false)
+          if (d['market_open'] == false)
             const Padding(
               padding: EdgeInsets.only(bottom: 8),
               child: Text(
@@ -194,18 +194,18 @@ class _TerminalState extends State<Terminal> {
                     ),
                   ),
                   const SizedBox(height: 10),
-                  if (d?['spot'] != null) metric('Spot', d['spot']),
-                  if (d?['strike'] != null)
+                  if (d['spot'] != null) metric('Spot', d['spot']),
+                  if (d['strike'] != null)
                     metric(
                       'Strike',
                       '${d['strike']} ${d['type'] ?? ''}',
                     ),
-                  if (d?['entry'] != null) metric('Entry', d['entry']),
-                  if (d?['ltp'] != null) metric('LTP', d['ltp']),
-                  if (d?['sl'] != null) metric('Stop loss', d['sl']),
-                  if (d?['target'] != null) metric('Target', d['target']),
-                  if (d?['score'] != null) metric('Angel score', d['score']),
-                  if (d?['ai_confidence'] != null)
+                  if (d['entry'] != null) metric('Entry', d['entry']),
+                  if (d['ltp'] != null) metric('LTP', d['ltp']),
+                  if (d['sl'] != null) metric('Stop loss', d['sl']),
+                  if (d['target'] != null) metric('Target', d['target']),
+                  if (d['score'] != null) metric('Angel score', d['score']),
+                  if (d['ai_confidence'] != null)
                     metric('AI confidence', d['ai_confidence']),
                 ],
               ),
@@ -238,7 +238,7 @@ class _TerminalState extends State<Terminal> {
                 ),
               ),
             ),
-          if (d?['nse_error'] != null)
+          if (d['nse_error'] != null)
             Text(
               'NSE: ${d['nse_error']}',
               style: const TextStyle(color: Colors.orangeAccent),
@@ -248,7 +248,7 @@ class _TerminalState extends State<Terminal> {
             'Reasons',
             style: TextStyle(fontWeight: FontWeight.bold),
           ),
-          ...((d?['reasons'] as List?) ?? const [])
+          ...((d['reasons'] as List?) ?? const [])
               .map((x) => Text('• $x')),
           const SizedBox(height: 18),
           const Text(
