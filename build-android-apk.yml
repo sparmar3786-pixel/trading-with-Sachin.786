@@ -1,6 +1,9 @@
 name: Build NIFTY Option AI APK
 on:
   workflow_dispatch:
+  push:
+    branches:
+      - same-code-apk-ready
 jobs:
   build:
     runs-on: ubuntu-latest
