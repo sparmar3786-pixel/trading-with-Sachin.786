@@ -1,14 +1,11 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
     <uses-permission android:name="android.permission.INTERNET" />
-    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
-    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" android:maxSdkVersion="28" />
-
     <application
-        android:theme="@style/AppTheme"
-        android:label="NIFTY Option AI"
+        android:theme="@android:style/Theme.Material.NoActionBar"
+        android:label="Option Chain Analyzer"
         android:usesCleartextTraffic="false"
-        android:hardwareAccelerated="true">
-
+        android:hardwareAccelerated="true"
+        android:allowBackup="false">
         <activity
             android:name=".MainActivity"
             android:screenOrientation="portrait"
@@ -18,6 +15,5 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
-
     </application>
 </manifest>
