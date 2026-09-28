@@ -1,0 +1,57 @@
+name: Build NSE AI APK
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - "nse_ai_apk/**"
+      - ".github/workflows/build-nse-ai-apk.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: Create Android project
+        run: flutter create nse_ai_apk/flutter_app --platforms=android --org com.sachin.nseai --project-name nse_ai_apk
+
+      - name: Install app source
+        run: |
+          cp nse_ai_apk/source/main.dart nse_ai_apk/flutter_app/lib/main.dart
+          cp nse_ai_apk/source/pubspec.yaml nse_ai_apk/flutter_app/pubspec.yaml
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path("nse_ai_apk/flutter_app/android/app/src/main/AndroidManifest.xml")
+          s = p.read_text()
+          if 'android.permission.INTERNET' not in s:
+              s = s.replace('<manifest xmlns:android="http://schemas.android.com/apk/res/android">',
+                            '<manifest xmlns:android="http://schemas.android.com/apk/res/android">\n    <uses-permission android:name="android.permission.INTERNET"/>')
+          s = s.replace('<application ', '<application android:usesCleartextTraffic="true" ', 1)
+          p.write_text(s)
+          PY
+
+      - name: Verify Dart source
+        working-directory: nse_ai_apk/flutter_app
+        run: dart analyze
+
+      - name: Build release APK
+        working-directory: nse_ai_apk/flutter_app
+        run: flutter build apk --release
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: nse-ai-apk
+          path: nse_ai_apk/flutter_app/build/app/outputs/flutter-apk/app-release.apk
+          if-no-files-found: error
