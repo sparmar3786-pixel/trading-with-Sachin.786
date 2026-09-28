@@ -31,6 +31,7 @@ jobs:
           cp nse_ai_apk/source/main.dart nse_ai_apk/flutter_app/lib/main.dart
           cp nse_ai_apk/source/pubspec.yaml nse_ai_apk/flutter_app/pubspec.yaml
           rm -f nse_ai_apk/flutter_app/test/widget_test.dart
+          rm -f nse_ai_apk/flutter_app/analysis_options.yaml
           python3 - <<'PY'
           from pathlib import Path
           p = Path("nse_ai_apk/flutter_app/android/app/src/main/AndroidManifest.xml")
