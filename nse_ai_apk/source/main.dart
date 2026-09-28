@@ -55,7 +55,8 @@ class _TerminalState extends State<Terminal> {
     super.dispose();
   }
 
-  String _baseUrl(String value) => value.trim().replaceFirst(RegExp(r'/$'), '');
+  String _baseUrl(String value) =>
+      value.trim().replaceFirst(RegExp(r'/$'), '');
 
   Future<void> fetchSignal() async {
     try {
@@ -148,8 +149,10 @@ class _TerminalState extends State<Terminal> {
   Widget build(BuildContext context) {
     final d = data;
     final action = (d?['action'] ?? 'WAIT').toString();
-    final nse =
-        d?['nse'] is Map ? Map<String, dynamic>.from(d!['nse']) : null;
+    final nseValue = d?['nse'];
+    final nse = nseValue is Map
+        ? Map<String, dynamic>.from(nseValue)
+        : null;
 
     return Scaffold(
       appBar: AppBar(
@@ -191,19 +194,19 @@ class _TerminalState extends State<Terminal> {
                     ),
                   ),
                   const SizedBox(height: 10),
-                  if (d?['spot'] != null) metric('Spot', d!['spot']),
+                  if (d?['spot'] != null) metric('Spot', d['spot']),
                   if (d?['strike'] != null)
                     metric(
                       'Strike',
-                      '${d!['strike']} ${d!['type'] ?? ''}',
+                      '${d['strike']} ${d['type'] ?? ''}',
                     ),
-                  if (d?['entry'] != null) metric('Entry', d!['entry']),
-                  if (d?['ltp'] != null) metric('LTP', d!['ltp']),
-                  if (d?['sl'] != null) metric('Stop loss', d!['sl']),
-                  if (d?['target'] != null) metric('Target', d!['target']),
-                  if (d?['score'] != null) metric('Angel score', d!['score']),
+                  if (d?['entry'] != null) metric('Entry', d['entry']),
+                  if (d?['ltp'] != null) metric('LTP', d['ltp']),
+                  if (d?['sl'] != null) metric('Stop loss', d['sl']),
+                  if (d?['target'] != null) metric('Target', d['target']),
+                  if (d?['score'] != null) metric('Angel score', d['score']),
                   if (d?['ai_confidence'] != null)
-                    metric('AI confidence', d!['ai_confidence']),
+                    metric('AI confidence', d['ai_confidence']),
                 ],
               ),
             ),
@@ -237,7 +240,7 @@ class _TerminalState extends State<Terminal> {
             ),
           if (d?['nse_error'] != null)
             Text(
-              'NSE: ${d!['nse_error']}',
+              'NSE: ${d['nse_error']}',
               style: const TextStyle(color: Colors.orangeAccent),
             ),
           const SizedBox(height: 8),
