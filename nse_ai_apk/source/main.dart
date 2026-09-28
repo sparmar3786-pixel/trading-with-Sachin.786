@@ -147,7 +147,7 @@ class _TerminalState extends State<Terminal> {
 
   @override
   Widget build(BuildContext context) {
-    final d = data;
+    final d = data ?? <String, dynamic>{};
     final action = (d?['action'] ?? 'WAIT').toString();
     final nseValue = d?['nse'];
     final nse = nseValue is Map
