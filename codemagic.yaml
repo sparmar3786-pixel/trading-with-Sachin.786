@@ -1,0 +1,25 @@
+workflows:
+  angelone-android-debug:
+    name: Trading with Sachin - Angel One Live APK
+    max_build_duration: 60
+    instance_type: mac_mini_m2
+    scripts:
+      - name: Set Android SDK location
+        script: |
+          echo "sdk.dir=$ANDROID_SDK_ROOT" > "$CM_BUILD_DIR/android_app/local.properties"
+      - name: Verify preserved Java + HTML sources
+        script: |
+          test -f "$CM_BUILD_DIR/android_app/app/src/main/java/com/sachin/niftyoptionai/MainActivity.java"
+          test -f "$CM_BUILD_DIR/android_app/app/src/main/assets/index.html"
+          test -f "$CM_BUILD_DIR/android_app/app/src/main/assets/angelone-live.js"
+          grep -q "angelone-live.js" "$CM_BUILD_DIR/android_app/app/src/main/java/com/sachin/niftyoptionai/MainActivity.java"
+      - name: Build debug APK
+        script: |
+          cd "$CM_BUILD_DIR/android_app"
+          gradle :app:assembleDebug --no-daemon --stacktrace
+      - name: Verify APK
+        script: |
+          test -f "$CM_BUILD_DIR/android_app/app/build/outputs/apk/debug/app-debug.apk"
+          ls -lh "$CM_BUILD_DIR/android_app/app/build/outputs/apk/debug/app-debug.apk"
+    artifacts:
+      - android_app/app/build/outputs/apk/debug/app-debug.apk
